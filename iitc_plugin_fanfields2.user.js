@@ -187,17 +187,19 @@ function wrapper(plugin_info) {
 
     // cycle to next starting point on the convex hull list of portals
     thisplugin.nextStartingPoint = function() {
-        // *** startingpoint handling is duplicated in updateLayer().
-        var i = thisplugin.startingpointIndex + 1;
-        if (i >= thisplugin.perimeterpoints.length) {
-            i = 0;
-        }
-        thisplugin.startingpointIndex = i;
+        if (!thisplugin.is_locked) {
+            // *** startingpoint handling is duplicated in updateLayer().
+            var i = thisplugin.startingpointIndex + 1;
+            if (i >= thisplugin.perimeterpoints.length) {
+                i = 0;
+            }
+            thisplugin.startingpointIndex = i;
 
-        thisplugin.startingpointGUID = thisplugin.perimeterpoints[thisplugin.startingpointIndex][0];
-        thisplugin.startingpoint = this.fanpoints[thisplugin.startingpointGUID];
-        //console.log("new index " + thisplugin.startingpointIndex);
-        thisplugin.updateLayer();
+            thisplugin.startingpointGUID = thisplugin.perimeterpoints[thisplugin.startingpointIndex][0];
+            thisplugin.startingpoint = this.fanpoints[thisplugin.startingpointGUID];
+            thisplugin.updateLayer();
+	}
+
     };
    
     thisplugin.generateTasks = function() {};
@@ -539,55 +541,6 @@ function wrapper(plugin_info) {
     };
 
 
-
-
-
-    // https://github.com/gregallensworth/Leaflet/
-    /*
- * extend Leaflet's LatLng class
- * giving it the ability to calculate the bearing to another LatLng
- * Usage example:
- *     here  = map.getCenter();   / some latlng
- *     there = L.latlng([37.7833,-122.4167]);
- *     var whichway = here.bearingWordTo(there);
- *     var howfar   = (here.distanceTo(there) / 1609.34).toFixed(2);
- *     alert("San Francisco is " + howfar + " miles, to the " + whichway );
- *
- * Greg Allensworth   <greg.allensworth@gmail.com>
- * No license, use as you will, kudos welcome but not required, etc.
- */
-
-    L.LatLng.prototype.bearingToE6 = function(other) {
-        var d2r  = thisplugin.DEG_TO_RAD;
-        var r2d  = thisplugin.RAD_TO_DEG;
-        var lat1 = this.lat * d2r;
-        var lat2 = other.lat * d2r;
-        var dLon = (other.lng-this.lng) * d2r;
-        var y    = Math.sin(dLon) * Math.cos(lat2);
-        var x    = Math.cos(lat1)*Math.sin(lat2) - Math.sin(lat1)*Math.cos(lat2)*Math.cos(dLon);
-        var brng = Math.atan2(y, x);
-        brng = parseInt( brng * r2d * 1E6 );
-        brng = ((brng + 360 * 1E6) % (360 * 1E6) / 1E6);
-        return brng;
-    };
-
-    L.LatLng.prototype.bearingWord = function(bearing) {
-        var bearingword = '';
-        if      (bearing >=  22 && bearing <=  67) bearingword = 'NE';
-        else if (bearing >=  67 && bearing <= 112) bearingword =  'E';
-        else if (bearing >= 112 && bearing <= 157) bearingword = 'SE';
-        else if (bearing >= 157 && bearing <= 202) bearingword =  'S';
-        else if (bearing >= 202 && bearing <= 247) bearingword = 'SW';
-        else if (bearing >= 247 && bearing <= 292) bearingword =  'W';
-        else if (bearing >= 292 && bearing <= 337) bearingword = 'NW';
-        else if (bearing >= 337 || bearing <=  22) bearingword =  'N';
-        return bearingword;
-    };
-
-    L.LatLng.prototype.bearingWordTo = function(other) {
-        var bearing = this.bearingToE6(other) ;
-        return this.bearingWord(bearing);
-    };
 
 
 
@@ -1186,6 +1139,55 @@ function wrapper(plugin_info) {
         window.addLayerGroup('Fanfields links', thisplugin.linksLayerGroup, false);
         window.addLayerGroup('Fanfields fields', thisplugin.fieldsLayerGroup, false);
         window.addLayerGroup('Fanfields numbers', thisplugin.numbersLayerGroup, false);
+
+        // Cannot reference leaflet until IITC and all plugins loaded
+    // https://github.com/gregallensworth/Leaflet/
+    /*
+ * extend Leaflet's LatLng class
+ * giving it the ability to calculate the bearing to another LatLng
+ * Usage example:
+ *     here  = map.getCenter();   / some latlng
+ *     there = L.latlng([37.7833,-122.4167]);
+ *     var whichway = here.bearingWordTo(there);
+ *     var howfar   = (here.distanceTo(there) / 1609.34).toFixed(2);
+ *     alert("San Francisco is " + howfar + " miles, to the " + whichway );
+ *
+ * Greg Allensworth   <greg.allensworth@gmail.com>
+ * No license, use as you will, kudos welcome but not required, etc.
+ */
+
+    L.LatLng.prototype.bearingToE6 = function(other) {
+        var d2r  = thisplugin.DEG_TO_RAD;
+        var r2d  = thisplugin.RAD_TO_DEG;
+        var lat1 = this.lat * d2r;
+        var lat2 = other.lat * d2r;
+        var dLon = (other.lng-this.lng) * d2r;
+        var y    = Math.sin(dLon) * Math.cos(lat2);
+        var x    = Math.cos(lat1)*Math.sin(lat2) - Math.sin(lat1)*Math.cos(lat2)*Math.cos(dLon);
+        var brng = Math.atan2(y, x);
+        brng = parseInt( brng * r2d * 1E6 );
+        brng = ((brng + 360 * 1E6) % (360 * 1E6) / 1E6);
+        return brng;
+    };
+
+    L.LatLng.prototype.bearingWord = function(bearing) {
+        var bearingword = '';
+        if      (bearing >=  22 && bearing <=  67) bearingword = 'NE';
+        else if (bearing >=  67 && bearing <= 112) bearingword =  'E';
+        else if (bearing >= 112 && bearing <= 157) bearingword = 'SE';
+        else if (bearing >= 157 && bearing <= 202) bearingword =  'S';
+        else if (bearing >= 202 && bearing <= 247) bearingword = 'SW';
+        else if (bearing >= 247 && bearing <= 292) bearingword =  'W';
+        else if (bearing >= 292 && bearing <= 337) bearingword = 'NW';
+        else if (bearing >= 337 || bearing <=  22) bearingword =  'N';
+        return bearingword;
+    };
+
+    L.LatLng.prototype.bearingWordTo = function(other) {
+        var bearing = this.bearingToE6(other) ;
+        return this.bearingWord(bearing);
+    };
+
 
         //window.map.on('zoomend', thisplugin.clearAllPortalLabels );
     };
