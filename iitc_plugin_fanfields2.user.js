@@ -3,7 +3,7 @@
 // @name            IITC plugin: Fan Fields 2
 // @author          Heistergand
 // @category        Layer
-// @version         2.1.9.1
+// @version         2.1.10
 // @description     Calculate how to link the portals to create the largest tidy set of nested fields. Enable from the layer chooser.
 // @include         https://intel.ingress.com/*
 // @match           https://intel.ingress.com/*
@@ -18,6 +18,9 @@
 
 /*
 Version History:
+2.1.10
+Bug fix: Move leaflet related init into setup() 
+
 2.1.9.1 (zysfryar)
 Fixed blank in header for compatibility with IITC-CE Button.
 
@@ -1169,7 +1172,7 @@ function wrapper(plugin_info) {
         brng = ((brng + 360 * 1E6) % (360 * 1E6) / 1E6);
         return brng;
     };
-
+/*
     L.LatLng.prototype.bearingWord = function(bearing) {
         var bearingword = '';
         if      (bearing >=  22 && bearing <=  67) bearingword = 'NE';
@@ -1187,7 +1190,7 @@ function wrapper(plugin_info) {
         var bearing = this.bearingToE6(other) ;
         return this.bearingWord(bearing);
     };
-
+*/
 
         //window.map.on('zoomend', thisplugin.clearAllPortalLabels );
     };
