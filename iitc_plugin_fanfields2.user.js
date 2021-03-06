@@ -4,7 +4,7 @@
 // @author          Heistergand
 // @category        Layer
 // @version         2.1.10
-// @description     Calculate how to link the portals to create the largest tidy set of nested fields. Enable from the layer chooser.
+// @description     Generate a link plan to create the maximum number fields from a group of portals. Enable from the layer chooser.
 // @include         https://intel.ingress.com/*
 // @match           https://intel.ingress.com/*
 // @grant           none
