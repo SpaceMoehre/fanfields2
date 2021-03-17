@@ -3,7 +3,7 @@
 // @name            IITC plugin: Fan Fields 2
 // @author          Heistergand
 // @category        Layer
-// @version         2.1.10
+// @version         2.1.10.1
 // @description     Generate a link plan to create the maximum number fields from a group of portals. Enable from the layer chooser.
 // @include         https://intel.ingress.com/*
 // @match           https://intel.ingress.com/*
@@ -146,13 +146,13 @@ function wrapper(plugin_info) {
     thisplugin.sortedFanpoints = [];
     thisplugin.perimeterpoints = [];
     thisplugin.startingpointIndex = 0;
-	
+    thisplugin.numSubFields = 1;
+
     thisplugin.links = [];
     thisplugin.linksLayerGroup = null;
     thisplugin.fieldsLayerGroup = null;
     thisplugin.numbersLayerGroup = null;
 
-    thisplugin.selectPolygon = function() {};
     thisplugin.saveBookmarks = function() {
 
         // loop thru portals and UN-Select them for bkmrks
@@ -209,10 +209,10 @@ function wrapper(plugin_info) {
     thisplugin.reset = function() {};
     thisplugin.help = function() {
         dialog({
-            html: '<p>Draw a polygon with Drawtools. '+
+            html: '<p>Draw a polygon with Drawtools around a cluster of portals to be fielded. More than one polygon can be used if needed. You will need to remove existing polygons if they cover portals you do not want to use.'+
 
             '<p>Use the Lock function to prevent the script from recalculating anything. This is useful if you have a large area and want to zoom into details.</p>  '+
-            '<p>Try to switch your plan to counterclockwise direction. Your route might be easier or harder if you change directions. Also try different anchors to get one more field out of some portal constellations.</p> '+
+            '<p>Try to switch your plan to counterclockwise direction and/or use move start to change the start portal.</p>'+
             '<p>Export your fanfield portals to bookmarks to extend your possibilites to work with the information.</p>'+
             '<p>There are some known issues you should be aware of:<br>This script uses a simple method to check for crosslinks. '+
             'It may suggest links that are not possible in dense areas because <i>that last portal</i> is in the way. It means they have flipped order. '+
@@ -234,7 +234,6 @@ function wrapper(plugin_info) {
                 "<tr><td>Total links / keys:</td><td>" + thisplugin.donelinks.length.toString() +"</td><tr>" +
                 "<tr><td>Fields:</td><td>" + thisplugin.triangles.length.toString() +"</td><tr>" +
                 "<tr><td>Build AP (links and fields):</td><td>" + (thisplugin.donelinks.length*313 + thisplugin.triangles.length*1250).toString() +"</td><tr>" +
-                //"<tr><td>Destroy AP (links and fields):</td><td>" + (thisplugin.sortedFanpoints.length*187 + thisplugin.triangles.length*750).toString() + "</td><tr>" +
                 "</table>";
             dialog({
                 html: text,
@@ -567,6 +566,7 @@ function wrapper(plugin_info) {
         return bearingword;
     };
 
+
     // find points in polygon 
     thisplugin.filterPolygon = function (points, polygon) {
         var result = [];
@@ -789,6 +789,7 @@ function wrapper(plugin_info) {
         };
 
         thisplugin.perimeterpoints = convexHull(this.fanpoints);
+	    console.log('Found perimeter points :', thisplugin.perimeterpoints.length);
         /*
         console.log("convex hull :");
         hullpoints.forEach(function(point, index) {
@@ -810,9 +811,36 @@ function wrapper(plugin_info) {
         console.log("startingpointIndex = " + thisplugin.startingpointIndex);
         thisplugin.startingpointGUID = thisplugin.perimeterpoints[thisplugin.startingpointIndex][0];
         thisplugin.startingpoint = this.fanpoints[thisplugin.startingpointGUID];
-        //console.log("Starting point : " + thisplugin.startingpointGUID);
-        //console.log("=> " + thisplugin.startingpoint);
 
+        // triangulate outer hull
+        // begin at startingpoint, zigzag across perimeterpoints
+	    thisplugin.numSubFields = thisplugin.perimeterpoints.length - 2;
+    
+        var sfpoints = [];
+        var sfi = thisplugin.startingpointIndex;
+        var pmax = thisplugin.perimeterpoints.length;
+        var tri_dir = -1;
+        // calc last perimeter index
+        // dir selects between ccw(-1) and cw(1) advance
+        function sflast(p, dir, max) {  
+            var n = p + dir * 1;
+            n = (max + n % max) % max;
+            return n;
+        }
+
+        var sf_range = [...Array(thisplugin.numSubFields).keys()];
+        for (sf of sf_range) {
+            if (sf === 0) {
+                sfpoints[0] = [sfi, (sfi+1) % pmax, (sfi+2) % pmax];
+            }
+            else {
+                sfpoints[sf] = [sfpoints[sf-1][2], sfpoints[sf-1][0], sflast(sfpoints[sf-1][0], tri_dir, pmax)];
+                tri_dir *= -1; 
+            }
+
+        //console.log('sfpoints :', sfpoints);
+    
+        // add links to startingpoint
         for (guid in this.fanpoints) {
             n++;
             if (this.fanpoints[guid].equals(thisplugin.startingpoint)) {
@@ -851,6 +879,7 @@ function wrapper(plugin_info) {
         //console.log("rotating...");
         // rotate the this.sortedFanpoints array until the bearing to the startingpoint has the longest gap to the previous one.
         // if no gap bigger 90° is present, start with the longest link.
+	    /* *** Use of outerhull removes need to rotate
         var currentBearing, lastBearing;
         var gaps = [];
         var gap, lastGap, maxGap, maxGapIndex, maxGapBearing;
@@ -878,6 +907,7 @@ function wrapper(plugin_info) {
         }
 
         this.sortedFanpoints = this.sortedFanpoints.concat(this.sortedFanpoints.splice(1,maxGapIndex-1));
+	    */
         if (!thisplugin.is_clockwise) {
             // reverse all but the first element
             this.sortedFanpoints = this.sortedFanpoints.concat(this.sortedFanpoints.splice(1,this.sortedFanpoints.length-1).reverse());
@@ -1061,8 +1091,7 @@ function wrapper(plugin_info) {
 
 
     thisplugin.setup = function() {
-        var button12 = '<a class="plugin_fanfields_btn" onclick="window.plugin.fanfields.nextStartingPoint();">Cycle Start</a> ';
-        //var button2 = '<a class="plugin_fanfields_selectpolybtn plugin_fanfields_btn" id="plugin_fanfields_selectpolybtn" onclick="window.plugin.fanfields.selectPolygon(\'start\');">Select&nbsp;Polygon</a> ';
+        var button12 = '<a class="plugin_fanfields_btn" onclick="window.plugin.fanfields.nextStartingPoint();">Move Start</a> ';
         var button3 = '<a class="plugin_fanfields_btn" onclick="window.plugin.fanfields.saveBookmarks();">Write&nbsp;Bookmarks</a> ';
         var button4 = '<a class="plugin_fanfields_btn" onclick="window.plugin.fanfields.exportText();">Show&nbsp;as&nbsp;list</a> ';
 
