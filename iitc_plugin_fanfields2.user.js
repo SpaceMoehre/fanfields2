@@ -753,22 +753,28 @@ function wrapper(plugin_info) {
 
         // used in convexHull
         function cross(a, b, o) {
-          return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+          //return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+          return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x)
         }
 
         // Find convex hull from fanpoints list of points
         // Returns array : [guid, [x,y],.....]
+        // Returns array of [guid,{x: y:}]
         function convexHull(points) {
             // convert to array
-            var pa = Object.entries(points).map(p => [p[0], [p[1].x, p[1].y]]);
+            //var pa = Object.entries(points).map(p => [p[0], [p[1].x, p[1].y]]);
+            var pa = Object.entries(points).map(p => [p[0], p[1]]);
+            console.log('cH:', pa);
             // sort by x then y if x the same
             pa.sort(function(a, b) {
-                return a[1][0] == b[1][0] ? a[1][1] - b[1][1] : a[1][0] - b[1][0];
+                //return a[1][0] == b[1][0] ? a[1][1] - b[1][1] : a[1][0] - b[1][0];
+                return a[1].x == b[1].x ? a[1].y - b[1].y : a[1].x - b[1].x;
             });
 
             var lower = [];
             var i;
             for (i = 0; i < pa.length; i++) {
+                //while (lower.length >= 2 && cross(lower[lower.length - 2][1], lower[lower.length - 1][1], pa[i][1]) <= 0) {
                 while (lower.length >= 2 && cross(lower[lower.length - 2][1], lower[lower.length - 1][1], pa[i][1]) <= 0) {
                     lower.pop();
                 }
@@ -788,21 +794,10 @@ function wrapper(plugin_info) {
             return lower.concat(upper);
         };
 
+        console.log('fanpoints:', this.fanpoints);
         thisplugin.perimeterpoints = convexHull(this.fanpoints);
 	    console.log('Found perimeter points :', thisplugin.perimeterpoints.length);
-        /*
-        console.log("convex hull :");
-        hullpoints.forEach(function(point, index) {
-            if (point[0]) {
-                var p = window.portals[point[0]];
-                var pname = p.options.data.title;
-                console.log(point[0] + "[" + point[1][0] + "," + point[1][1] + "]" + pname);
-            }
-        });
-        */
 
-        //console.log("fanpoints: ========================================================");
-        //console.log(this.fanpoints);
 
         // Use currently selected index in outer hull as starting point
         if (thisplugin.startingpointIndex >= thisplugin.perimeterpoints.length) {
@@ -820,6 +815,7 @@ function wrapper(plugin_info) {
         var sfi = thisplugin.startingpointIndex;
         var pmax = thisplugin.perimeterpoints.length;
         var tri_dir = -1;
+
         // calc last perimeter index
         // dir selects between ccw(-1) and cw(1) advance
         function sflast(p, dir, max) {  
@@ -837,9 +833,74 @@ function wrapper(plugin_info) {
                 sfpoints[sf] = [sfpoints[sf-1][2], sfpoints[sf-1][0], sflast(sfpoints[sf-1][0], tri_dir, pmax)];
                 tri_dir *= -1; 
             }
-
+        }
         //console.log('sfpoints :', sfpoints);
-    
+        console.log('perimeter points:', thisplugin.perimeterpoints);
+        var sf_bounds = [];
+
+        var p = thisplugin.perimeterpoints;
+        // draw boundaries of subfields
+        for (sf of sfpoints) {
+            console.log('sf:', sf);
+            var x0=p[sf[0]];
+            
+            var p0 = p[sf[0]][1];
+            var p1 = p[sf[1]][1];
+            var p2 = p[sf[2]][1];
+            console.log('p 0,1,2:', p0, p1, p2);
+
+            // *** ? replace these with draw triangle
+            drawLink(p0, p1, {
+                color: '#0000FF',
+                opacity: 1,
+                weight: 4,
+                clickable: false,
+                smoothFactor: 10,
+                //dashArray: [10, 5, 5, 5, 5, 5, 5, 5, "100%" ],
+            });
+            drawLink(p1, p2, {
+                color: '#0000FF',
+                opacity: 1,
+                weight: 4,
+                clickable: false,
+                smoothFactor: 10,
+                //dashArray: [10, 5, 5, 5, 5, 5, 5, 5, "100%" ],
+            });
+            drawLink(p2, p0, {
+                color: '#0000FF',
+                opacity: 1,
+                weight: 4,
+                clickable: false,
+                smoothFactor: 10,
+                //dashArray: [10, 5, 5, 5, 5, 5, 5, 5, "100%" ],
+            });
+            
+        }
+/*
+        var tri0 = sfpoints[0];
+        console.log('tri0:',tri0);
+        // points for sf0: p[tri0[0]]; p[tri0[1]]; p[tri0[2]];
+        var x0=p[tri0[0]];
+        
+        //var xo = {x:x0[1][0], y:x0[1][1]};
+        var xo = {x:x0[1].x, y:x0[1].y};
+        console.log('x0:', xo);
+ 
+        var point0 = p[tri0[0]][1];
+        var point1 = p[tri0[1]][1];
+        var point2 = p[tri0[2]][1];
+        
+        console.log('points:', point0, point1, point2);
+
+        drawLink(point0, point2, {
+            color: '#0000FF',
+            opacity: 1,
+            weight: 4,
+            clickable: false,
+            smoothFactor: 10,
+            //dashArray: [10, 5, 5, 5, 5, 5, 5, 5, "100%" ],
+        });
+*/
         // add links to startingpoint
         for (guid in this.fanpoints) {
             n++;
@@ -1052,6 +1113,7 @@ function wrapper(plugin_info) {
         });
 
         $.each(thisplugin.links, function(idx, edge) {
+            console.log('edge:',edge);
             drawLink(edge.a, edge.b, {
                 color: '#FF0000',
                 opacity: 1,
