@@ -138,14 +138,12 @@ function wrapper(plugin_info) {
 
     thisplugin.labelLayers = {};
 
-    thisplugin.startingpoint = undefined;
-
+    thisplugin.start = {}; //undefined;
 
     thisplugin.locations = [];
     thisplugin.fanpoints = [];
     thisplugin.sortedFanpoints = [];
-    thisplugin.perimeterpoints = [];
-    thisplugin.startingpointIndex = 0;
+    thisplugin.hullPoints = [];
     thisplugin.numSubFields = 1;
 
     thisplugin.links = [];
@@ -189,17 +187,21 @@ function wrapper(plugin_info) {
     };
 
     // cycle to next starting point on the convex hull list of portals
-    thisplugin.nextStartingPoint = function() {
+    thisplugin.nextstartPoint = function() {
         if (!thisplugin.is_locked) {
-            // *** startingpoint handling is duplicated in updateLayer().
-            var i = thisplugin.startingpointIndex + 1;
-            if (i >= thisplugin.perimeterpoints.length) {
+            // *** startPoint handling is duplicated in updateLayer().
+            //var i = thisplugin.startPointIndex + 1;
+            var i = thisplugin.start.index + 1;
+            if (i >= thisplugin.hullPoints.length) {
                 i = 0;
             }
-            thisplugin.startingpointIndex = i;
+            //thisplugin.startPointIndex = i;
+            thisplugin.start.index = i;
 
-            thisplugin.startingpointGUID = thisplugin.perimeterpoints[thisplugin.startingpointIndex][0];
-            thisplugin.startingpoint = this.fanpoints[thisplugin.startingpointGUID];
+            //thisplugin.startPointGUID = thisplugin.hullPoints[thisplugin.startPointIndex][0];
+            //thisplugin.startPoint = this.fanpoints[thisplugin.startPointGUID];
+            thisplugin.start.guid = thisplugin.hullPoints[thisplugin.start.index][0];
+            thisplugin.start.point = this.fanpoints[thisplugin.start.guid];
             thisplugin.updateLayer();
 	}
 
@@ -624,15 +626,11 @@ function wrapper(plugin_info) {
         var polygon,intersection;
         var starting_ll , fanpoint_ll ;
         var fp_index, fp, bearing, sublinkCount;
-        thisplugin.startingpoint = undefined;
-        thisplugin.startingpointGUID = "";
+        thisplugin.start = {}; //undefined;
         thisplugin.centerKeys = 0;
-
 
         thisplugin.locations = [];
         thisplugin.fanpoints = [];
-
-
 
         thisplugin.links = [];
         if (!window.map.hasLayer(thisplugin.linksLayerGroup) &&
@@ -654,12 +652,12 @@ function wrapper(plugin_info) {
             var alatlng = map.unproject(a.point, thisplugin.PROJECT_ZOOM);
             var labelText = "";
             if (thisplugin.stardirection == thisplugin.starDirENUM.CENTRALIZING) {
-                labelText = "START PORTAL<BR>Keys: "+ a.incoming.length +"<br>Total Fields: " + triangles.length.toString();
+                labelText = "START<BR>Keys: "+ a.incoming.length +"<br>Total Fields: " + triangles.length.toString();
             }
             else {
-                labelText = "START PORTAL<BR>Keys: "+ a.incoming.length +", SBUL: "+(centerSbul)+"<br>out: " + centerOutgoings + "<br>Total Fields: " + triangles.length.toString();
+                labelText = "START<BR>Keys: "+ a.incoming.length +", SBUL: "+(centerSbul)+"<br>out: " + centerOutgoings + "<br>Total Fields: " + triangles.length.toString();
             }
-            thisplugin.addLabel(thisplugin.startingpointGUID,alatlng,labelText);
+            thisplugin.addLabel(thisplugin.start.guid, alatlng,labelText);
         }
 
         function drawNumber(a,number) {
@@ -700,7 +698,6 @@ function wrapper(plugin_info) {
 
         thisplugin.intelLinks = {};
         $.each(window.links, function(guid, link) {
-            //console.log('================================================================================');
             var lls = link.getLatLngs();
             var line = {a: {}, b: {} };
             var a = lls[0], b  = lls[1];
@@ -753,28 +750,23 @@ function wrapper(plugin_info) {
 
         // used in convexHull
         function cross(a, b, o) {
-          //return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
           return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x)
         }
 
         // Find convex hull from fanpoints list of points
-        // Returns array : [guid, [x,y],.....]
         // Returns array of [guid,{x: y:}]
         function convexHull(points) {
             // convert to array
-            //var pa = Object.entries(points).map(p => [p[0], [p[1].x, p[1].y]]);
             var pa = Object.entries(points).map(p => [p[0], p[1]]);
             console.log('cH:', pa);
             // sort by x then y if x the same
             pa.sort(function(a, b) {
-                //return a[1][0] == b[1][0] ? a[1][1] - b[1][1] : a[1][0] - b[1][0];
                 return a[1].x == b[1].x ? a[1].y - b[1].y : a[1].x - b[1].x;
             });
 
             var lower = [];
             var i;
             for (i = 0; i < pa.length; i++) {
-                //while (lower.length >= 2 && cross(lower[lower.length - 2][1], lower[lower.length - 1][1], pa[i][1]) <= 0) {
                 while (lower.length >= 2 && cross(lower[lower.length - 2][1], lower[lower.length - 1][1], pa[i][1]) <= 0) {
                     lower.pop();
                 }
@@ -795,25 +787,40 @@ function wrapper(plugin_info) {
         };
 
         console.log('fanpoints:', this.fanpoints);
-        thisplugin.perimeterpoints = convexHull(this.fanpoints);
-	    console.log('Found perimeter points :', thisplugin.perimeterpoints.length);
+        thisplugin.hullPoints = convexHull(this.fanpoints);
+	    console.log('Found perimeter points :', thisplugin.hullPoints.length);
 
 
         // Use currently selected index in outer hull as starting point
-        if (thisplugin.startingpointIndex >= thisplugin.perimeterpoints.length) {
-          thisplugin.startingpointIndex = 0;
-        }
-        console.log("startingpointIndex = " + thisplugin.startingpointIndex);
-        thisplugin.startingpointGUID = thisplugin.perimeterpoints[thisplugin.startingpointIndex][0];
-        thisplugin.startingpoint = this.fanpoints[thisplugin.startingpointGUID];
+        // *** Move this to start set/update handler
+        {
+            console.log('start:', thisplugin.start);
+            var index;
+            if (thisplugin.start.index == undefined) {
+                index = 0;
+            } else {
+                index = thisplugin.start.index;
+            }
+            
+            if (index >= thisplugin.hullPoints.length) {
+                index = 0;
+            }
+            console.log("startIndex = ", index);
 
+            var guid = thisplugin.hullPoints[index][0];
+            var point = thisplugin.fanpoints[guid];
+
+            thisplugin.start = {guid : guid, point : point, index : index};
+        }
+        
         // triangulate outer hull
-        // begin at startingpoint, zigzag across perimeterpoints
-	    thisplugin.numSubFields = thisplugin.perimeterpoints.length - 2;
+        // begin at start, zigzag across hullPoints
+        // *** move this to triangulate function
+	    thisplugin.numSubFields = thisplugin.hullPoints.length - 2;
     
         var sfpoints = [];
-        var sfi = thisplugin.startingpointIndex;
-        var pmax = thisplugin.perimeterpoints.length;
+        var sfi = thisplugin.start.index;
+        var pmax = thisplugin.hullPoints.length;
         var tri_dir = -1;
 
         // calc last perimeter index
@@ -834,11 +841,11 @@ function wrapper(plugin_info) {
                 tri_dir *= -1; 
             }
         }
-        //console.log('sfpoints :', sfpoints);
-        console.log('perimeter points:', thisplugin.perimeterpoints);
+
+        console.log('perimeter points:', thisplugin.hullPoints);
         var sf_bounds = [];
 
-        var p = thisplugin.perimeterpoints;
+        var p = thisplugin.hullPoints;
         // draw boundaries of subfields
         for (sf of sfpoints) {
             console.log('sf:', sf);
@@ -876,41 +883,16 @@ function wrapper(plugin_info) {
             });
             
         }
-/*
-        var tri0 = sfpoints[0];
-        console.log('tri0:',tri0);
-        // points for sf0: p[tri0[0]]; p[tri0[1]]; p[tri0[2]];
-        var x0=p[tri0[0]];
-        
-        //var xo = {x:x0[1][0], y:x0[1][1]};
-        var xo = {x:x0[1].x, y:x0[1].y};
-        console.log('x0:', xo);
- 
-        var point0 = p[tri0[0]][1];
-        var point1 = p[tri0[1]][1];
-        var point2 = p[tri0[2]][1];
-        
-        console.log('points:', point0, point1, point2);
 
-        drawLink(point0, point2, {
-            color: '#0000FF',
-            opacity: 1,
-            weight: 4,
-            clickable: false,
-            smoothFactor: 10,
-            //dashArray: [10, 5, 5, 5, 5, 5, 5, 5, "100%" ],
-        });
-*/
-        // add links to startingpoint
+        // add links to start
         for (guid in this.fanpoints) {
             n++;
-            if (this.fanpoints[guid].equals(thisplugin.startingpoint)) {
-
+            if (this.fanpoints[guid].equals(thisplugin.start.point)) {
                 continue;
             } else {
 
                 a = this.fanpoints[guid];
-                b = thisplugin.startingpoint;
+                b = thisplugin.start.point;
 
                 fanlinks.push({a: a,
                                b: b,
@@ -925,11 +907,11 @@ function wrapper(plugin_info) {
         for ( guid in this.fanpoints) {
             fp = this.fanpoints[guid];
             this.sortedFanpoints.push({point: fp,
-                                       bearing: this.getBearing(thisplugin.startingpoint,fp),
+                                       bearing: this.getBearing(thisplugin.start.point,fp),
                                        guid: guid,
                                        incoming: [] ,
                                        outgoing: [],
-                                       is_startpoint: this.fanpoints[guid].equals(thisplugin.startingpoint)
+                                       is_start: this.fanpoints[guid].equals(thisplugin.start.point)
                                       });
 
         }
@@ -937,51 +919,16 @@ function wrapper(plugin_info) {
             return a.bearing - b.bearing;
         });
 
-        //console.log("rotating...");
-        // rotate the this.sortedFanpoints array until the bearing to the startingpoint has the longest gap to the previous one.
-        // if no gap bigger 90° is present, start with the longest link.
-	    /* *** Use of outerhull removes need to rotate
-        var currentBearing, lastBearing;
-        var gaps = [];
-        var gap, lastGap, maxGap, maxGapIndex, maxGapBearing;
-        for (i in this.sortedFanpoints) {
-            if (lastBearing === undefined) {
-                lastBearing = this.sortedFanpoints[this.sortedFanpoints.length-1].bearing;
-                gap = 0;
-                lastGap = 0;
-                maxGap = 0;
-                maxGapIndex = 0;
-                maxGapBearing = 0;
-            }
-            currentBearing = this.sortedFanpoints[i].bearing;
-            gap = lastBearing - currentBearing;
-            if (gap < 0) gap *= -1;
-            if (gap >= 180) gap = 360 - gap;
-
-            if (gap > maxGap){
-                maxGap = gap;
-                maxGapIndex = i;
-                maxGapBearing = currentBearing;
-            }
-            lastBearing = currentBearing;
-            lastGap = gap;
-        }
-
-        this.sortedFanpoints = this.sortedFanpoints.concat(this.sortedFanpoints.splice(1,maxGapIndex-1));
-	    */
         if (!thisplugin.is_clockwise) {
             // reverse all but the first element
             this.sortedFanpoints = this.sortedFanpoints.concat(this.sortedFanpoints.splice(1,this.sortedFanpoints.length-1).reverse());
-            //lines.sort(function(a, b){return b.bearing - a.bearing;});
         }
-
 
         donelinks = [];
         var outbound = 0;
         var possibleline;
         for(pa = 0; pa < this.sortedFanpoints.length; pa++){
             bearing = this.sortedFanpoints[pa].bearing;
-            //console.log("FANPOINTS: " + pa + " to 0 bearing: "+ bearing + " " + this.bearingWord(bearing));
             sublinkCount = 0;
 
             for(pb = 0 ; pb < pa; pb++) {
@@ -1022,7 +969,6 @@ function wrapper(plugin_info) {
                     for (i in maplinks) {
                         if (this.intersects(possibleline,maplinks[i]) ) {
                             intersection++;
-                            //console.log("FANPOINTS: " + pa + " - "+pb+" bearing: " + bearing + " " + this.bearingWord(bearing) + "(crosslink)");
                             break;
                         }
                     }
@@ -1045,7 +991,6 @@ function wrapper(plugin_info) {
                 }
 
                 if (intersection === 0) {
-                    //console.log("FANPOINTS: " + pa + " - "+pb+" bearing: " + bearing + "° " + this.bearingWord(bearing));
                     // Check if Link is a jetlink and add second field
                     var thirds = [];
                     if (thisplugin.respectCurrentLinks) {
@@ -1103,13 +1048,12 @@ function wrapper(plugin_info) {
         // and add those we do
         var startLabelDrawn = false;
         $.each(this.sortedFanpoints, function(idx, fp) {
-            if (thisplugin.startingpoint !== undefined && fp.point.equals(thisplugin.startingpoint)) {
+            if (thisplugin.start.point !== undefined && fp.point.equals(thisplugin.start.point)) {
                 drawStartLabel(fp);
                 startLabelDrawn = true;
             }
             else
                 drawNumber(fp,idx);
-
         });
 
         $.each(thisplugin.links, function(idx, edge) {
@@ -1146,14 +1090,12 @@ function wrapper(plugin_info) {
                 if (!thisplugin.is_locked) 
 		    thisplugin.updateLayer();
             }, wait*350);
-
         }
-
     };
 
 
     thisplugin.setup = function() {
-        var button12 = '<a class="plugin_fanfields_btn" onclick="window.plugin.fanfields.nextStartingPoint();">Move Start</a> ';
+        var button12 = '<a class="plugin_fanfields_btn" onclick="window.plugin.fanfields.nextstartPoint();">Move Start</a> ';
         var button3 = '<a class="plugin_fanfields_btn" onclick="window.plugin.fanfields.saveBookmarks();">Write&nbsp;Bookmarks</a> ';
         var button4 = '<a class="plugin_fanfields_btn" onclick="window.plugin.fanfields.exportText();">Show&nbsp;as&nbsp;list</a> ';
 
@@ -1187,10 +1129,10 @@ function wrapper(plugin_info) {
                              'box-shadow: 3px 3px 5px black;' +
                              'color: #ffce00;' +
                              '"><legend >Fan Fields</legend></fieldset>');
-        //$('#plugin_fanfields_toolbox').append('<div id="plugin_fanfields_toolbox_title">Fan Fields 2</div>');
 
         if (!window.plugin.drawTools || !window.plugin.bookmarks) {
 
+            // *** remove static link to plugin location
             dialog({
                 html: '<b>Fan Fields</b><p>Fan Fields requires IITC drawtools and bookmarks plugins</p><a href="https://iitc.me/desktop/">Download here</a>',
                 id: 'plugin_fanfields_alert_dependencies',
@@ -1207,7 +1149,6 @@ function wrapper(plugin_info) {
         thisplugin.linksLayerGroup = new L.LayerGroup();
         thisplugin.fieldsLayerGroup = new L.LayerGroup();
         thisplugin.numbersLayerGroup = new L.LayerGroup();
-
 
         window.pluginCreateHook('pluginDrawTools');
 
@@ -1263,27 +1204,7 @@ function wrapper(plugin_info) {
         brng = ((brng + 360 * 1E6) % (360 * 1E6) / 1E6);
         return brng;
     };
-/*
-    L.LatLng.prototype.bearingWord = function(bearing) {
-        var bearingword = '';
-        if      (bearing >=  22 && bearing <=  67) bearingword = 'NE';
-        else if (bearing >=  67 && bearing <= 112) bearingword =  'E';
-        else if (bearing >= 112 && bearing <= 157) bearingword = 'SE';
-        else if (bearing >= 157 && bearing <= 202) bearingword =  'S';
-        else if (bearing >= 202 && bearing <= 247) bearingword = 'SW';
-        else if (bearing >= 247 && bearing <= 292) bearingword =  'W';
-        else if (bearing >= 292 && bearing <= 337) bearingword = 'NW';
-        else if (bearing >= 337 || bearing <=  22) bearingword =  'N';
-        return bearingword;
-    };
 
-    L.LatLng.prototype.bearingWordTo = function(other) {
-        var bearing = this.bearingToE6(other) ;
-        return this.bearingWord(bearing);
-    };
-*/
-
-        //window.map.on('zoomend', thisplugin.clearAllPortalLabels );
     };
 
 
