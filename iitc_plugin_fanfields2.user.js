@@ -138,7 +138,7 @@ function wrapper(plugin_info) {
 
     thisplugin.labelLayers = {};
 
-    thisplugin.start = {}; //undefined;
+    thisplugin.start = {guid:undefined, point : {}, index : undefined}; //undefined;
 
     thisplugin.locations = [];
     thisplugin.fanpoints = [];
@@ -188,22 +188,25 @@ function wrapper(plugin_info) {
 
     // cycle to next starting point on the convex hull list of portals
     thisplugin.nextstartPoint = function() {
+        console.log('nextstartPoint: start=', thisplugin.start);
         if (!thisplugin.is_locked) {
+            console.log('start.index=', thisplugin.start.index);
             // *** startPoint handling is duplicated in updateLayer().
-            //var i = thisplugin.startPointIndex + 1;
             var i = thisplugin.start.index + 1;
             if (i >= thisplugin.hullPoints.length) {
                 i = 0;
             }
-            //thisplugin.startPointIndex = i;
+            
             thisplugin.start.index = i;
+            console.log('next :start+ =', thisplugin.start.index);
 
-            //thisplugin.startPointGUID = thisplugin.hullPoints[thisplugin.startPointIndex][0];
-            //thisplugin.startPoint = this.fanpoints[thisplugin.startPointGUID];
             thisplugin.start.guid = thisplugin.hullPoints[thisplugin.start.index][0];
             thisplugin.start.point = this.fanpoints[thisplugin.start.guid];
+            // *** full behaviour of updateLayer is not needed here
+            //     could split updateLayer into separate scanning and field creation sections
+            console.log('nextstartPoint: @exit=', thisplugin.start);
             thisplugin.updateLayer();
-	}
+    	}
 
     };
    
@@ -216,6 +219,7 @@ function wrapper(plugin_info) {
             '<p>Use the Lock function to prevent the script from recalculating anything. This is useful if you have a large area and want to zoom into details.</p>  '+
             '<p>Try to switch your plan to counterclockwise direction and/or use move start to change the start portal.</p>'+
             '<p>Export your fanfield portals to bookmarks to extend your possibilites to work with the information.</p>'+
+            // To do : find out if impossible link issue still exists
             '<p>There are some known issues you should be aware of:<br>This script uses a simple method to check for crosslinks. '+
             'It may suggest links that are not possible in dense areas because <i>that last portal</i> is in the way. It means they have flipped order. '+
             'If you\'re not sure, link to the center for both portals first and see what you can link. You\'ll get the same amount of fields, but need to farm other keys.</p>'+
@@ -245,7 +249,6 @@ function wrapper(plugin_info) {
                 closeOnEscape: true
             });
         }
-
 
     }
 
@@ -382,8 +385,10 @@ function wrapper(plugin_info) {
                 // link in list equals tested link
                 continue;
             }
-            if (list[i].a.equals(a) || list[i].b.equals(a)) linksOnA.push(list[i]);
-            if (list[i].a.equals(b) || list[i].b.equals(b)) linksOnB.push(list[i]);
+            if (list[i].a.equals(a) || list[i].b.equals(a))
+                linksOnA.push(list[i]);
+            if (list[i].a.equals(b) || list[i].b.equals(b))
+                linksOnB.push(list[i]);
         }
         for (i in linksOnA) {
             for (k in linksOnB) {
@@ -400,7 +405,6 @@ function wrapper(plugin_info) {
     thisplugin.linkExists = function(list, link) {
         var i, result = false;
         for (i in list) {
-            //if ((list[i].a == link.a && list[i].b == link.b) || (list[i].a == link.b && list[i].b == link.a))
             if (thisplugin.linksEqual(list[i],link)) {
                 result =  true;
                 break;
@@ -408,7 +412,6 @@ function wrapper(plugin_info) {
         }
         return result;
     };
-
 
 
     thisplugin.linksEqual = function(link1,link2) {
@@ -421,8 +424,6 @@ function wrapper(plugin_info) {
             return true;
         }
     };
-
-
 
 
     thisplugin.intersects = function(link1, link2) {
@@ -544,9 +545,20 @@ function wrapper(plugin_info) {
         }
     };
 
+    // angle of line a,b; or angle between line a,b and line a,c
+    thisplugin.getAngle = function(a, b, c) {
+        var angle_a, angle_b;
 
-
-
+        angle_a = Math.atan2(b.y-a.y, b.x-a.x) * (180 / Math.PI);
+        
+        if (arguments.length == 2) {
+            return angle_a;
+        }
+        if (arguments.length == 3) {
+            angle_b = Math.atan2(c.y-a.y, c.x-a.x) * (180 / Math.PI);
+            return angle_b - angle_a;
+        }
+    }
 
     thisplugin.getBearing = function (a,b) {
         var starting_ll, other_ll;
@@ -573,7 +585,6 @@ function wrapper(plugin_info) {
     thisplugin.filterPolygon = function (points, polygon) {
         var result = [];
         var guid,i,j,ax,ay,bx,by,la,lb,cos,alpha,det;
-
 
         for (guid in points) {
             var asum = 0;
@@ -626,7 +637,7 @@ function wrapper(plugin_info) {
         var polygon,intersection;
         var starting_ll , fanpoint_ll ;
         var fp_index, fp, bearing, sublinkCount;
-        thisplugin.start = {}; //undefined;
+        //thisplugin.start = {};
         thisplugin.centerKeys = 0;
 
         thisplugin.locations = [];
@@ -675,7 +686,6 @@ function wrapper(plugin_info) {
             var poly = L.polyline([alatlng, blatlng], style);
             poly.addTo(thisplugin.linksLayerGroup);
 
-
         }
 
         function drawField(a, b, c, style) {
@@ -688,7 +698,7 @@ function wrapper(plugin_info) {
 
         }
 
-	// Get portal locations
+    	// Get portal locations
         $.each(window.portals, function(guid, portal) {
             var ll = portal.getLatLng();
             var p = map.project(ll, thisplugin.PROJECT_ZOOM);
@@ -721,7 +731,7 @@ function wrapper(plugin_info) {
                 fanLayer = dtLayers[dtLayer];
                 if (!(fanLayer instanceof L.GeodesicPolygon)) {
                     continue;
-                }
+                 }
                 ll = fanLayer.getLatLngs();
 
                 polygon = [];
@@ -737,7 +747,6 @@ function wrapper(plugin_info) {
             return result;
         }
 
-
         this.sortedFanpoints = [];
 
         this.fanpoints = findFanpoints(plugin.drawTools.drawnItems._layers,
@@ -746,7 +755,7 @@ function wrapper(plugin_info) {
 
         var npoints = Object.keys(this.fanpoints).length;
         if (npoints === 0)
-	    return;
+	        return;
 
         // used in convexHull
         function cross(a, b, o) {
@@ -758,7 +767,6 @@ function wrapper(plugin_info) {
         function convexHull(points) {
             // convert to array
             var pa = Object.entries(points).map(p => [p[0], p[1]]);
-            console.log('cH:', pa);
             // sort by x then y if x the same
             pa.sort(function(a, b) {
                 return a[1].x == b[1].x ? a[1].y - b[1].y : a[1].x - b[1].x;
@@ -786,15 +794,18 @@ function wrapper(plugin_info) {
             return lower.concat(upper);
         };
 
-        console.log('fanpoints:', this.fanpoints);
+        //console.log('fanpoints:', this.fanpoints);
         thisplugin.hullPoints = convexHull(this.fanpoints);
 	    console.log('Found perimeter points :', thisplugin.hullPoints.length);
 
+        // Must have 3 hull points to proceed
+        if (thisplugin.hullPoints.length < 3) 
+            return;
 
         // Use currently selected index in outer hull as starting point
         // *** Move this to start set/update handler
         {
-            console.log('start:', thisplugin.start);
+            console.log('update layer start=', thisplugin.start);
             var index;
             if (thisplugin.start.index == undefined) {
                 index = 0;
@@ -805,12 +816,15 @@ function wrapper(plugin_info) {
             if (index >= thisplugin.hullPoints.length) {
                 index = 0;
             }
-            console.log("startIndex = ", index);
+            console.log("next start index = ", index);
 
+            // *** hullPoints[index] returns undefined when no portals
+            // are selected (hullPoints.length == 0)
             var guid = thisplugin.hullPoints[index][0];
             var point = thisplugin.fanpoints[guid];
 
             thisplugin.start = {guid : guid, point : point, index : index};
+            console.log('next start =', thisplugin.start);
         }
         
         // triangulate outer hull
@@ -842,11 +856,12 @@ function wrapper(plugin_info) {
             }
         }
 
-        console.log('perimeter points:', thisplugin.hullPoints);
+        console.log('hull points:', thisplugin.hullPoints);
         var sf_bounds = [];
 
         var p = thisplugin.hullPoints;
         // draw boundaries of subfields
+        var sfPolygons = [];
         for (sf of sfpoints) {
             console.log('sf:', sf);
             var x0=p[sf[0]];
@@ -855,6 +870,7 @@ function wrapper(plugin_info) {
             var p1 = p[sf[1]][1];
             var p2 = p[sf[2]][1];
             console.log('p 0,1,2:', p0, p1, p2);
+            sfPolygons.push([p0, p1, p2]);
 
             // *** ? replace these with draw triangle
             drawLink(p0, p1, {
@@ -883,41 +899,78 @@ function wrapper(plugin_info) {
             });
             
         }
+        console.log('sfPoly:', sfPolygons);
 
-        // add links to start
-        for (guid in this.fanpoints) {
-            n++;
-            if (this.fanpoints[guid].equals(thisplugin.start.point)) {
-                continue;
-            } else {
+        // base line for angle is first 2 points in hullPoints
+        // *** assume CW only to verify
+        
+        var base0 = thisplugin.hullPoints[thisplugin.start.index][1];
+        var base1 = thisplugin.hullPoints[(thisplugin.start.index + 1) % thisplugin.hullPoints.length][1];
+        
+        console.log('base0', base0);
+        console.log('base1', base1);
 
-                a = this.fanpoints[guid];
-                b = thisplugin.start.point;
-
-                fanlinks.push({a: a,
-                               b: b,
-                               bearing: undefined,
-                               isJetLink: undefined,
-                               isFanLink: undefined
-                              });
-
-            }
-        }
-
+        // create sortedFanpoints from all selected portals
+        var base_angle = thisplugin.getAngle(base0, base1);
+        console.log('base angle:', base_angle);
         for ( guid in this.fanpoints) {
             fp = this.fanpoints[guid];
+            var fp_angle;
+            var is_start;
+            if (this.fanpoints[guid].equals(thisplugin.start.point)) {
+                // portal order number display requires start portal is first,
+                // force start point to first in sorted points (other portals are in range 0..180)
+                fp_angle = -1;
+                is_start = true;
+            }else {
+                fp_angle = thisplugin.getAngle(base0, fp);
+                console.log('fp angle:', fp_angle);
+                fp_angle = fp_angle - base_angle;
+                // adjust angles crossing +/- 180
+                if (fp_angle < 0){
+                    fp_angle = fp_angle + 360;
+                }
+                
+                is_start = false;
+            }
+            
             this.sortedFanpoints.push({point: fp,
                                        bearing: this.getBearing(thisplugin.start.point,fp),
+                                       angle: fp_angle,
                                        guid: guid,
                                        incoming: [] ,
                                        outgoing: [],
-                                       is_start: this.fanpoints[guid].equals(thisplugin.start.point)
+                                       is_start: is_start
                                       });
 
         }
+/*
         this.sortedFanpoints.sort(function(a, b){
             return a.bearing - b.bearing;
         });
+*/
+        this.sortedFanpoints.sort(function(a, b){
+            return a.angle - b.angle;
+        });
+
+        // add links from all points to start
+        n = thisplugin.sortedFanpoints.length;
+        for (p of thisplugin.sortedFanpoints) {
+            console.log('p:', p);
+            //if (p > 0) {
+            if (p.bearing != 0) {
+
+                a = p.point;
+                b = thisplugin.start.point;
+
+                fanlinks.push({a: a,
+                       b: b,
+                       bearing: undefined,
+                       isJetLink: undefined,
+                       isFanLink: undefined
+                      });
+            }
+        }
 
         if (!thisplugin.is_clockwise) {
             // reverse all but the first element
@@ -928,6 +981,7 @@ function wrapper(plugin_info) {
         var outbound = 0;
         var possibleline;
         for(pa = 0; pa < this.sortedFanpoints.length; pa++){
+            // *** bearing is overwritten in inner loop?
             bearing = this.sortedFanpoints[pa].bearing;
             sublinkCount = 0;
 
@@ -1057,7 +1111,7 @@ function wrapper(plugin_info) {
         });
 
         $.each(thisplugin.links, function(idx, edge) {
-            console.log('edge:',edge);
+            //console.log('edge:',edge);
             drawLink(edge.a, edge.b, {
                 color: '#FF0000',
                 opacity: 1,
