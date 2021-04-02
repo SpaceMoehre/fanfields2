@@ -560,27 +560,6 @@ function wrapper(plugin_info) {
         }
     }
 
-    thisplugin.getBearing = function (a,b) {
-        var starting_ll, other_ll;
-        starting_ll = map.unproject(a, thisplugin.PROJECT_ZOOM);
-        other_ll = map.unproject(b, thisplugin.PROJECT_ZOOM);
-        return starting_ll.bearingToE6(other_ll);
-    };
-
-    thisplugin.bearingWord = function(bearing) {
-        var bearingword = '';
-        if      (bearing >=  22 && bearing <=  67) bearingword = 'NE';
-        else if (bearing >=  67 && bearing <= 112) bearingword =  'E';
-        else if (bearing >= 112 && bearing <= 157) bearingword = 'SE';
-        else if (bearing >= 157 && bearing <= 202) bearingword =  'S';
-        else if (bearing >= 202 && bearing <= 247) bearingword = 'SW';
-        else if (bearing >= 247 && bearing <= 292) bearingword =  'W';
-        else if (bearing >= 292 && bearing <= 337) bearingword = 'NW';
-        else if (bearing >= 337 || bearing <=  22) bearingword =  'N';
-        return bearingword;
-    };
-
-
     // find points in polygon 
     thisplugin.filterPolygon = function (points, polygon) {
         var result = [];
@@ -636,8 +615,7 @@ function wrapper(plugin_info) {
         var guid;
         var polygon,intersection;
         var starting_ll , fanpoint_ll ;
-        var fp_index, fp, bearing, sublinkCount;
-        //thisplugin.start = {};
+        var fp_index, fp, sublinkCount;
         thisplugin.centerKeys = 0;
 
         thisplugin.locations = [];
@@ -716,11 +694,6 @@ function wrapper(plugin_info) {
             line.b = map.project(b, thisplugin.PROJECT_ZOOM);
             thisplugin.intelLinks[guid] = line;
         });
-
-
-        function recordLine(index_a, index_b, bearing, bearing_word, guid_a, guid_b ) {
-            //console.log("FANPOINTS: " + pa + " to "+pb+" center bearing: "+ bearing + "° " + this.bearingWord(bearing));
-        }
 
         // filter layers into array that only contains GeodesicPolygon
         function findFanpoints(dtLayers,locations,filter) {
@@ -902,13 +875,11 @@ function wrapper(plugin_info) {
         console.log('sfPoly:', sfPolygons);
 
         // base line for angle is first 2 points in hullPoints
-        // *** assume CW only to verify
-        
         var base0 = thisplugin.hullPoints[thisplugin.start.index][1];
         var base1 = thisplugin.hullPoints[(thisplugin.start.index + 1) % thisplugin.hullPoints.length][1];
         
-        console.log('base0', base0);
-        console.log('base1', base1);
+        //console.log('base0', base0);
+        //console.log('base1', base1);
 
         // create sortedFanpoints from all selected portals
         var base_angle = thisplugin.getAngle(base0, base1);
@@ -926,7 +897,7 @@ function wrapper(plugin_info) {
                 fp_angle = thisplugin.getAngle(base0, fp);
                 console.log('fp angle:', fp_angle);
                 fp_angle = fp_angle - base_angle;
-                // adjust angles crossing +/- 180
+                // adjust angles crossing 180
                 if (fp_angle < 0){
                     fp_angle = fp_angle + 360;
                 }
@@ -935,7 +906,6 @@ function wrapper(plugin_info) {
             }
             
             this.sortedFanpoints.push({point: fp,
-                                       bearing: this.getBearing(thisplugin.start.point,fp),
                                        angle: fp_angle,
                                        guid: guid,
                                        incoming: [] ,
@@ -944,11 +914,7 @@ function wrapper(plugin_info) {
                                       });
 
         }
-/*
-        this.sortedFanpoints.sort(function(a, b){
-            return a.bearing - b.bearing;
-        });
-*/
+
         this.sortedFanpoints.sort(function(a, b){
             return a.angle - b.angle;
         });
@@ -957,15 +923,13 @@ function wrapper(plugin_info) {
         n = thisplugin.sortedFanpoints.length;
         for (p of thisplugin.sortedFanpoints) {
             console.log('p:', p);
-            //if (p > 0) {
-            if (p.bearing != 0) {
-
+            if (!p.is_start) {
                 a = p.point;
                 b = thisplugin.start.point;
 
                 fanlinks.push({a: a,
                        b: b,
-                       bearing: undefined,
+                       angle: undefined,
                        isJetLink: undefined,
                        isFanLink: undefined
                       });
@@ -981,15 +945,12 @@ function wrapper(plugin_info) {
         var outbound = 0;
         var possibleline;
         for(pa = 0; pa < this.sortedFanpoints.length; pa++){
-            // *** bearing is overwritten in inner loop?
-            bearing = this.sortedFanpoints[pa].bearing;
             sublinkCount = 0;
 
             for(pb = 0 ; pb < pa; pb++) {
                 outbound = 0;
                 a = this.sortedFanpoints[pa].point;
                 b = this.sortedFanpoints[pb].point;
-                bearing =  this.getBearing(a,b);
 
                 if (pb===0) {
                     if (thisplugin.stardirection == thisplugin.starDirENUM.RADIATING && centerOutgoings < 40 ) {
@@ -1008,7 +969,7 @@ function wrapper(plugin_info) {
 
                 possibleline = {a: a,
                                 b: b,
-                                bearing: bearing,
+                                angle: 0,
                                 isJetLink: false,
                                 isFanLink: (pb===0),
                                 counts: true
@@ -1228,36 +1189,6 @@ function wrapper(plugin_info) {
         window.addLayerGroup('Fanfields links', thisplugin.linksLayerGroup, false);
         window.addLayerGroup('Fanfields fields', thisplugin.fieldsLayerGroup, false);
         window.addLayerGroup('Fanfields numbers', thisplugin.numbersLayerGroup, false);
-
-        // Cannot reference leaflet until IITC and all plugins loaded
-    // https://github.com/gregallensworth/Leaflet/
-    /*
- * extend Leaflet's LatLng class
- * giving it the ability to calculate the bearing to another LatLng
- * Usage example:
- *     here  = map.getCenter();   / some latlng
- *     there = L.latlng([37.7833,-122.4167]);
- *     var whichway = here.bearingWordTo(there);
- *     var howfar   = (here.distanceTo(there) / 1609.34).toFixed(2);
- *     alert("San Francisco is " + howfar + " miles, to the " + whichway );
- *
- * Greg Allensworth   <greg.allensworth@gmail.com>
- * No license, use as you will, kudos welcome but not required, etc.
- */
-
-    L.LatLng.prototype.bearingToE6 = function(other) {
-        var d2r  = thisplugin.DEG_TO_RAD;
-        var r2d  = thisplugin.RAD_TO_DEG;
-        var lat1 = this.lat * d2r;
-        var lat2 = other.lat * d2r;
-        var dLon = (other.lng-this.lng) * d2r;
-        var y    = Math.sin(dLon) * Math.cos(lat2);
-        var x    = Math.cos(lat1)*Math.sin(lat2) - Math.sin(lat1)*Math.cos(lat2)*Math.cos(dLon);
-        var brng = Math.atan2(y, x);
-        brng = parseInt( brng * r2d * 1E6 );
-        brng = ((brng + 360 * 1E6) % (360 * 1E6) / 1E6);
-        return brng;
-    };
 
     };
 
