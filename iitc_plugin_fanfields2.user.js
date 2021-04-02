@@ -549,13 +549,13 @@ function wrapper(plugin_info) {
     thisplugin.getAngle = function(a, b, c) {
         var angle_a, angle_b;
 
-        angle_a = Math.atan2(b.y-a.y, b.x-a.x) * (180 / Math.PI);
+        angle_a = Math.atan2(b.y-a.y, b.x-a.x) * thisplugin.RAD_TO_DEG;
         
         if (arguments.length == 2) {
             return angle_a;
         }
         if (arguments.length == 3) {
-            angle_b = Math.atan2(c.y-a.y, c.x-a.x) * (180 / Math.PI);
+            angle_b = Math.atan2(c.y-a.y, c.x-a.x) * thisplugin.RAD_TO_DEG;
             return angle_b - angle_a;
         }
     }
@@ -832,6 +832,7 @@ function wrapper(plugin_info) {
         console.log('hull points:', thisplugin.hullPoints);
         var sf_bounds = [];
 
+        /*
         var p = thisplugin.hullPoints;
         // draw boundaries of subfields
         var sfPolygons = [];
@@ -845,7 +846,6 @@ function wrapper(plugin_info) {
             console.log('p 0,1,2:', p0, p1, p2);
             sfPolygons.push([p0, p1, p2]);
 
-            // *** ? replace these with draw triangle
             drawLink(p0, p1, {
                 color: '#0000FF',
                 opacity: 1,
@@ -872,7 +872,8 @@ function wrapper(plugin_info) {
             });
             
         }
-        console.log('sfPoly:', sfPolygons);
+        */
+        //console.log('sfPoly:', sfPolygons);
 
         // base line for angle is first 2 points in hullPoints
         var base0 = thisplugin.hullPoints[thisplugin.start.index][1];
