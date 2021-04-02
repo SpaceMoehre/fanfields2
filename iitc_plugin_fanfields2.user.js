@@ -3,7 +3,7 @@
 // @name            IITC plugin: Fan Fields 2
 // @author          Heistergand
 // @category        Layer
-// @version         2.1.10.1
+// @version         2.1.10.2
 // @description     Generate a link plan to create the maximum number fields from a group of portals. Enable from the layer chooser.
 // @include         https://intel.ingress.com/*
 // @match           https://intel.ingress.com/*
@@ -614,7 +614,6 @@ function wrapper(plugin_info) {
         var pa,i,pb,k,ll,p;
         var guid;
         var polygon,intersection;
-        var starting_ll , fanpoint_ll ;
         var fp_index, fp, sublinkCount;
         thisplugin.centerKeys = 0;
 
@@ -791,8 +790,6 @@ function wrapper(plugin_info) {
             }
             console.log("next start index = ", index);
 
-            // *** hullPoints[index] returns undefined when no portals
-            // are selected (hullPoints.length == 0)
             var guid = thisplugin.hullPoints[index][0];
             var point = thisplugin.fanpoints[guid];
 
