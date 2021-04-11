@@ -143,6 +143,7 @@ function wrapper(plugin_info) {
     thisplugin.locations = [];
     thisplugin.fanpoints = [];
     thisplugin.sortedFanpoints = [];
+    thisplugin.sortedFanpoints[0] = [];
     thisplugin.hullPoints = [];
     thisplugin.numSubFields = 1;
 
@@ -151,11 +152,14 @@ function wrapper(plugin_info) {
     thisplugin.fieldsLayerGroup = null;
     thisplugin.numbersLayerGroup = null;
 
+    //thisplugin.multiField = false;
+    thisplugin.multiField = true;
+
     thisplugin.saveBookmarks = function() {
 
         // loop thru portals and UN-Select them for bkmrks
         var bkmrkData, list;
-        thisplugin.sortedFanpoints.forEach(function(point, index) {
+        thisplugin.sortedFanpoints[0].forEach(function(point, index) {
             bkmrkData = window.plugin.bookmarks.findByGuid(point.guid);
             if(bkmrkData) {
 
@@ -175,7 +179,7 @@ function wrapper(plugin_info) {
             }
         });
         // loop again: ordered(!) to add them as bookmarks
-        thisplugin.sortedFanpoints.forEach(function(point, index) {
+        thisplugin.sortedFanpoints[0].forEach(function(point, index) {
             if (point.guid) {
                 var p = window.portals[point.guid];
                 var ll = p.getLatLng();
@@ -234,7 +238,7 @@ function wrapper(plugin_info) {
 
     thisplugin.showStatistics = function() {
         var text = "";
-        if (this.sortedFanpoints.length > 3) {
+        if (this.sortedFanpoints[0].length > 3) {
             text = "<table><tr><td>FanPortals:</td><td>" + (thisplugin.n-1) + "</td><tr>" +
                 "<tr><td>CenterKeys:</td><td>" + thisplugin.centerKeys +"</td><tr>" +
                 "<tr><td>Total links / keys:</td><td>" + thisplugin.donelinks.length.toString() +"</td><tr>" +
@@ -257,7 +261,7 @@ function wrapper(plugin_info) {
         // drawn links and how about just exporting the json without saving it to the current draw?
 
         var alatlng, blatlng, layer;
-        $.each(thisplugin.sortedFanpoints, function(index, point) {
+        $.each(thisplugin.sortedFanpoints[0], function(index, point) {
             $.each(point.outgoing, function(targetIndex, targetPoint) {
 
                 alatlng = map.unproject(point.point, thisplugin.PROJECT_ZOOM);
@@ -281,7 +285,7 @@ function wrapper(plugin_info) {
     thisplugin.exportText = function() {
         var text = "<table><thead><tr><th style='text-align:right'>Pos.</th><th style='text-align:left'>Portal Name</th><th>Keys</th><th>Links</th></tr></thead><tbody>";
 
-        thisplugin.sortedFanpoints.forEach(function(point, index) {
+        thisplugin.sortedFanpoints[0].forEach(function(point, index) {
             var p, title;
 
             p = window.portals[point.guid];
@@ -545,23 +549,50 @@ function wrapper(plugin_info) {
         }
     };
 
-    // angle of line a,b; or angle between line a,b and line a,c
+    // angle of line a,b
+    // adjust for base angle c if present
     thisplugin.getAngle = function(a, b, c) {
-        var angle_a, angle_b;
+        var angle;
 
-        angle_a = Math.atan2(b.y-a.y, b.x-a.x) * thisplugin.RAD_TO_DEG;
-        
-        if (arguments.length == 2) {
-            return angle_a;
+        angle = Math.atan2(b.y-a.y, b.x-a.x) * thisplugin.RAD_TO_DEG;
+        //console.log('angle:', angle,);
+        //console.log('c=', c);
+        if (c != undefined) {
+            angle = angle - c;
+            if (angle < 0) {
+                angle = angle + 360;
+            }
         }
-        if (arguments.length == 3) {
-            angle_b = Math.atan2(c.y-a.y, c.x-a.x) * thisplugin.RAD_TO_DEG;
-            return angle_b - angle_a;
+        return angle;
+    }
+
+    // angle between line a,b and line a,c
+    thisplugin.getAngle2 = function(a, b, c) {
+        var angle;
+        var ax, bx, ay, cy;
+
+        if (b === c) {
+            return 0;
         }
+        ax = b.x - a.x;
+        ay = b.y - a.y;
+        bx = c.x - a.x;
+        by = c.y - a.y;
+        //console.log('getAngle2:', ax, ay, bx, by);
+        var num = Math.abs(ax*bx + ay*by);
+        var den = Math.sqrt(ax*ax + ay*ay) * Math.sqrt(bx*bx + by*by);
+
+        angle = Math.acos(num / den) * thisplugin.RAD_TO_DEG;
+        return angle;
     }
 
     // find points in polygon 
     thisplugin.filterPolygon = function (points, polygon) {
+
+        //console.log('filterPolygon:');
+        //console.log(points);
+        //console.log(polygon);
+
         var result = [];
         var guid,i,j,ax,ay,bx,by,la,lb,cos,alpha,det;
 
@@ -576,7 +607,7 @@ function wrapper(plugin_info) {
                 lb = Math.sqrt(bx*bx + by*by);
                 if (Math.abs(la) < 0.1 || Math.abs(lb) < 0.1 ) { // the point is a vertex of the polygon
                     break;
-		}
+		        }
                 cos = (ax*bx+ay*by)/la/lb;
                 if (cos < -1)
                     cos = -1;
@@ -615,6 +646,7 @@ function wrapper(plugin_info) {
         var guid;
         var polygon,intersection;
         var fp_index, fp, sublinkCount;
+        // *** this should be the same as start point incoming
         thisplugin.centerKeys = 0;
 
         thisplugin.locations = [];
@@ -719,8 +751,6 @@ function wrapper(plugin_info) {
             return result;
         }
 
-        this.sortedFanpoints = [];
-
         this.fanpoints = findFanpoints(plugin.drawTools.drawnItems._layers,
                                        this.locations,
                                        this.filterPolygon);
@@ -729,14 +759,14 @@ function wrapper(plugin_info) {
         if (npoints === 0)
 	        return;
 
-        // used in convexHull
-        function cross(a, b, o) {
-          return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x)
-        }
 
         // Find convex hull from fanpoints list of points
         // Returns array of [guid,{x: y:}]
         function convexHull(points) {
+
+            function cross(a, b, o) {
+                return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x)
+            }
             // convert to array
             var pa = Object.entries(points).map(p => [p[0], p[1]]);
             // sort by x then y if x the same
@@ -770,7 +800,7 @@ function wrapper(plugin_info) {
         thisplugin.hullPoints = convexHull(this.fanpoints);
 	    console.log('Found perimeter points :', thisplugin.hullPoints.length);
 
-        // Must have 3 hull points to proceed
+        // Must have >= 3 hull points to proceed
         if (thisplugin.hullPoints.length < 3) 
             return;
 
@@ -801,8 +831,17 @@ function wrapper(plugin_info) {
         // begin at start, zigzag across hullPoints
         // *** move this to triangulate function
 	    thisplugin.numSubFields = thisplugin.hullPoints.length - 2;
-    
+        var subfield_range = [...Array(thisplugin.numSubFields).keys()];
+
+        console.log('subfield_range=', subfield_range);
+
+        // array of sorted points for each subfield
+        for (i of subfield_range) {
+            thisplugin.sortedFanpoints[i] = [];
+        }
+
         var sfpoints = [];
+
         var sfi = thisplugin.start.index;
         var pmax = thisplugin.hullPoints.length;
         var tri_dir = -1;
@@ -815,8 +854,7 @@ function wrapper(plugin_info) {
             return n;
         }
 
-        var sf_range = [...Array(thisplugin.numSubFields).keys()];
-        for (sf of sf_range) {
+        for (sf of subfield_range) {
             if (sf === 0) {
                 sfpoints[0] = [sfi, (sfi+1) % pmax, (sfi+2) % pmax];
             }
@@ -825,101 +863,117 @@ function wrapper(plugin_info) {
                 tri_dir *= -1; 
             }
         }
-
-        console.log('hull points:', thisplugin.hullPoints);
-        var sf_bounds = [];
-
-        /*
+        //console.log('sfpoints:', sfpoints);
+        var sfpoly_points = [];
         var p = thisplugin.hullPoints;
-        // draw boundaries of subfields
-        var sfPolygons = [];
-        for (sf of sfpoints) {
-            console.log('sf:', sf);
-            var x0=p[sf[0]];
-            
-            var p0 = p[sf[0]][1];
-            var p1 = p[sf[1]][1];
-            var p2 = p[sf[2]][1];
-            console.log('p 0,1,2:', p0, p1, p2);
-            sfPolygons.push([p0, p1, p2]);
-
-            drawLink(p0, p1, {
-                color: '#0000FF',
-                opacity: 1,
-                weight: 4,
-                clickable: false,
-                smoothFactor: 10,
-                //dashArray: [10, 5, 5, 5, 5, 5, 5, 5, "100%" ],
-            });
-            drawLink(p1, p2, {
-                color: '#0000FF',
-                opacity: 1,
-                weight: 4,
-                clickable: false,
-                smoothFactor: 10,
-                //dashArray: [10, 5, 5, 5, 5, 5, 5, 5, "100%" ],
-            });
-            drawLink(p2, p0, {
-                color: '#0000FF',
-                opacity: 1,
-                weight: 4,
-                clickable: false,
-                smoothFactor: 10,
-                //dashArray: [10, 5, 5, 5, 5, 5, 5, 5, "100%" ],
-            });
-            
+        for (sf of sfpoints){
+            //console.log('sf:', sf[0]);
+            sfpoly_points.push([p[sf[0]][1], p[sf[1]][1], p[sf[2]][1]]);
         }
-        */
-        //console.log('sfPoly:', sfPolygons);
+        console.log('sf poly:', sfpoly_points);
+        console.log('hull points:', thisplugin.hullPoints);
 
-        // base line for angle is first 2 points in hullPoints
-        var base0 = thisplugin.hullPoints[thisplugin.start.index][1];
-        var base1 = thisplugin.hullPoints[(thisplugin.start.index + 1) % thisplugin.hullPoints.length][1];
-        
-        //console.log('base0', base0);
-        //console.log('base1', base1);
-
-        // create sortedFanpoints from all selected portals
-        var base_angle = thisplugin.getAngle(base0, base1);
-        console.log('base angle:', base_angle);
-        for ( guid in this.fanpoints) {
-            fp = this.fanpoints[guid];
-            var fp_angle;
-            var is_start;
-            if (this.fanpoints[guid].equals(thisplugin.start.point)) {
-                // portal order number display requires start portal is first,
-                // force start point to first in sorted points (other portals are in range 0..180)
-                fp_angle = -1;
-                is_start = true;
-            }else {
-                fp_angle = thisplugin.getAngle(base0, fp);
-                console.log('fp angle:', fp_angle);
-                fp_angle = fp_angle - base_angle;
-                // adjust angles crossing 180
-                if (fp_angle < 0){
-                    fp_angle = fp_angle + 360;
-                }
-                
-                is_start = false;
+        // filter selected portals into sub fields
+        // *** only needed if multifield
+        var sfFanpoints = [];
+        if (thisplugin.multiField) {
+            for (poly of sfpoly_points) {
+                console.log('poly:', poly);
+                var sf_filtered = thisplugin.filterPolygon(thisplugin.fanpoints, poly);
+                sfFanpoints.push(sf_filtered);
+                console.log('sf filtered:', sf_filtered);
             }
-            
-            this.sortedFanpoints.push({point: fp,
-                                       angle: fp_angle,
-                                       guid: guid,
-                                       incoming: [] ,
-                                       outgoing: [],
-                                       is_start: is_start
-                                      });
+        } else {
+             sfFanpoints.push(thisplugin.fanpoints);
+        }
+        console.log('sfFanpoints:', sfFanpoints);
 
+        for (sf of sfpoly_points) {
+            for (i=0; i < 3; i++){
+                drawLink(sf[i], sf[(i+1)%3], {
+                    color: '#0000FF',
+                    opacity: 1,
+                    weight: 4,
+                    clickable: false,
+                    smoothFactor: 10,
+                    //dashArray: [10, 5, 5, 5, 5, 5, 5, 5, "100%" ],
+                });  
+            }
         }
 
-        this.sortedFanpoints.sort(function(a, b){
-            return a.angle - b.angle;
-        });
+        // *** add loop to process multifield mode;
+        //     each mf adds an array of points to sortedFanpoints
+        console.log('----------------------------------');
+        for (mfIdx = 0; mfIdx < thisplugin.numSubFields; mfIdx++) {    
+            console.log('--------- mfIdx=', mfIdx);
+        //for (mfIdx = 0; mfIdx < 1; mfIdx++) {
+            //if (!thisplugin.multiField) {
+                // base line for angle is first 2 points in hullPoints
+                // *** this changes if multifield
+                //     use first 2 points in subfield poly
+
+                // *** Is CW/CCW control to select base1 point useful? this would change triangulate as well
+
+                // change base0,base1 to use subfield points
+                //var base0 = thisplugin.hullPoints[thisplugin.start.index][1];
+                //var base1 = thisplugin.hullPoints[(thisplugin.start.index + 1) % thisplugin.hullPoints.length][1];
+                //var base_p0_idx = thisplugin.hullPoints[sfpoints[mfIdx][0]];
+                //var base_p1_idx = thisplugin.hullPoints[sfpoints[mfIdx][1]];
+                var base_p0_idx = sfpoints[mfIdx][0];
+                var base_p1_idx = sfpoints[mfIdx][1];
+
+                console.log('base idx', base_p0_idx, base_p1_idx);
+                var base0 = thisplugin.hullPoints[base_p0_idx][1];
+                var base1 = thisplugin.hullPoints[base_p1_idx][1];
+                
+                // create sortedFanpoints from all selected portals
+                var base_angle = thisplugin.getAngle(base0, base1);
+                var fp_angle2;
+                console.log('base angle:', base_angle);
+                thisplugin.sortedFanpoints[mfIdx] = [];
+                //for ( guid in this.fanpoints) {
+                for (guid in sfFanpoints[mfIdx]) {
+                    //fp = this.fanpoints[guid];
+                    fp = sfFanpoints[mfIdx][guid];
+                    var fp_angle;
+                    var is_start;
+                    
+                    //is_start = this.fanpoints[guid].equals(thisplugin.start.point);
+                    // sfpoints[mfIdx] is [] of outer point indices for current sf
+                    
+                    is_start = guid == thisplugin.hullPoints[sfpoints[mfIdx][0]][0];
+
+                    // for portal order number display the start point
+                    // must be at sortedFanpoints[0]. set angle to -1 to force this.
+                    // correct wraparound for angles that cross 180
+                    if (is_start) {
+                        fp_angle = -1;
+                    } else {
+                        //fp_angle = thisplugin.getAngle(base0, fp, base_angle);
+                        //fp_angle2 = thisplugin.getAngle2(base0, base1, fp);
+                        fp_angle = thisplugin.getAngle2(base0, base1, fp);
+                        //console.log('fp angle:', fp_angle); //, fp_angle2);
+                    }
+                    
+                    this.sortedFanpoints[mfIdx].push({point: fp,
+                                            angle: fp_angle,
+                                            guid: guid,
+                                            incoming: [],
+                                            outgoing: [],
+                                            is_start: is_start
+                                            });
+                }
+
+                this.sortedFanpoints[mfIdx].sort(function(a, b){
+                    return a.angle - b.angle;
+                });
+            //} 
 
         // add links from all points to start
-        n = thisplugin.sortedFanpoints.length;
-        for (p of thisplugin.sortedFanpoints) {
+        /*
+        *** these are added in the donelinks loop; this is probably not needed
+        n = thisplugin.sortedFanpoints[mfIdx].length;
+        for (p of thisplugin.sortedFanpoints[mfIdx]) {
             console.log('p:', p);
             if (!p.is_start) {
                 a = p.point;
@@ -933,27 +987,32 @@ function wrapper(plugin_info) {
                       });
             }
         }
+        console.log('fanlinks len=', fanlinks.length);
+        */
 
         if (!thisplugin.is_clockwise) {
             // reverse all but the first element
-            this.sortedFanpoints = this.sortedFanpoints.concat(this.sortedFanpoints.splice(1,this.sortedFanpoints.length-1).reverse());
+            this.sortedFanpoints[mfIdx] = this.sortedFanpoints[mfIdx].concat(this.sortedFanpoints[mfIdx].splice(1,this.sortedFanpoints[mfIdx].length-1).reverse());
         }
 
         donelinks = [];
         var outbound = 0;
         var possibleline;
-        for(pa = 0; pa < this.sortedFanpoints.length; pa++){
+        for(pa = 0; pa < this.sortedFanpoints[mfIdx].length; pa++){
             sublinkCount = 0;
-
+            console.log('pa#, guid', pa, this.sortedFanpoints[mfIdx][pa].guid);
+            console.log('donelinks len:', donelinks.length);
             for(pb = 0 ; pb < pa; pb++) {
+                //console.log('link test a,b:', pa, pb);
+                console.log('pb#, guid', pb, this.sortedFanpoints[mfIdx][pb].guid);
                 outbound = 0;
-                a = this.sortedFanpoints[pa].point;
-                b = this.sortedFanpoints[pb].point;
+                a = this.sortedFanpoints[mfIdx][pa].point;
+                b = this.sortedFanpoints[mfIdx][pb].point;
 
                 if (pb===0) {
                     if (thisplugin.stardirection == thisplugin.starDirENUM.RADIATING && centerOutgoings < 40 ) {
-                        a = this.sortedFanpoints[pb].point;
-                        b = this.sortedFanpoints[pa].point;
+                        a = this.sortedFanpoints[mfIdx][pb].point;
+                        b = this.sortedFanpoints[mfIdx][pa].point;
                         console.log("outbound");
                         centerOutgoings++;
                         if (centerOutgoings > 8) {
@@ -971,7 +1030,6 @@ function wrapper(plugin_info) {
                                 isJetLink: false,
                                 isFanLink: (pb===0),
                                 counts: true
-
                                };
                 intersection = 0;
                 maplinks = [];
@@ -996,12 +1054,14 @@ function wrapper(plugin_info) {
                         break;
                     }
                 }
+                /*
                 for (i in fanlinks) {
                     if (this.intersects(possibleline,fanlinks[i])) {
                         intersection++;
                         break;
                     }
                 }
+                */
 
                 if (intersection === 0) {
                     // Check if Link is a jetlink and add second field
@@ -1018,16 +1078,21 @@ function wrapper(plugin_info) {
                         possibleline.isJetLink = true;
                     }
 
-
+                    console.log('add link:', possibleline);
                     if (possibleline.counts) {
-                        donelinks.splice(donelinks.length-(this.sortedFanpoints.length-pa),0,possibleline);
+                        var dl_splice;
+                        dl_splice = donelinks.length - (thisplugin.sortedFanpoints[mfIdx].length - pa);
+                        console.log('dl splice:', donelinks.length, dl_splice);
+                        donelinks.splice(donelinks.length-(this.sortedFanpoints[mfIdx].length-pa),0,possibleline);
                         if (pb===0 && thisplugin.stardirection == thisplugin.starDirENUM.RADIATING && outbound == 1 ) {
-                            this.sortedFanpoints[pb].outgoing.push(this.sortedFanpoints[pa]);
-                            this.sortedFanpoints[pa].incoming.push(this.sortedFanpoints[pb]);
+                            this.sortedFanpoints[mfIdx][pb].outgoing.push(this.sortedFanpoints[mfIdx][pa]);
+                            this.sortedFanpoints[mfIdx][pa].incoming.push(this.sortedFanpoints[mfIdx][pb]);
                         } else {
-                            this.sortedFanpoints[pa].outgoing.push(this.sortedFanpoints[pb]);
-                            this.sortedFanpoints[pb].incoming.push(this.sortedFanpoints[pa]);
+                            this.sortedFanpoints[mfIdx][pa].outgoing.push(this.sortedFanpoints[mfIdx][pb]);
+                            this.sortedFanpoints[mfIdx][pb].incoming.push(this.sortedFanpoints[mfIdx][pa]);
                         }
+                        console.log('donelinks:', donelinks);
+
                     }
                     for (var t in thirds) {
                         triangles.push({a:thirds[t], b:possibleline.a, c:possibleline.b});
@@ -1035,12 +1100,21 @@ function wrapper(plugin_info) {
                 }
             }
         }
+        // end of mfNum loop
+        }
 
+        console.log('sortedFanpoints:', thisplugin.sortedFanpoints);
+        console.log('donelinks len=', donelinks.length);
+        // add donelinks to links
         $.each(donelinks, function(i,elem) {
+            console.log('donelinks i:', i, elem);
             thisplugin.links[i] = elem;
         });
+        console.log('links:', thisplugin.links);
 
-        if (this.sortedFanpoints.length > 3) {
+        // *** Should this be total or for each subfield?
+        /*
+        if (this.sortedFanpoints[mfIdx].length > 3) {
             thisplugin.triangles = triangles;
             thisplugin.donelinks = donelinks;
             thisplugin.n = n;
@@ -1051,16 +1125,17 @@ function wrapper(plugin_info) {
                             "\nTotal links / keys:    " + donelinks.length.toString() +
                             "\nFields:                " + triangles.length.toString() +
                             "\nBuild AP:              " + (donelinks.length*313 + triangles.length*1250).toString() +
-                            "\nDestroy AP:            " + (this.sortedFanpoints.length*187 + triangles.length*750).toString());
+                            "\nDestroy AP:            " + (this.sortedFanpoints[0].length*187 + triangles.length*750).toString());
         }
-
+        */
 
         // remove any not wanted
         thisplugin.clearAllPortalLabels();
 
         // and add those we do
         var startLabelDrawn = false;
-        $.each(this.sortedFanpoints, function(idx, fp) {
+        /*
+        $.each(this.sortedFanpoints[mfIdx], function(idx, fp) {
             if (thisplugin.start.point !== undefined && fp.point.equals(thisplugin.start.point)) {
                 drawStartLabel(fp);
                 startLabelDrawn = true;
@@ -1068,6 +1143,7 @@ function wrapper(plugin_info) {
             else
                 drawNumber(fp,idx);
         });
+        */
 
         $.each(thisplugin.links, function(idx, edge) {
             //console.log('edge:',edge);
