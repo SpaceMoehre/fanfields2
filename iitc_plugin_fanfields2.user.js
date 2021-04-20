@@ -144,6 +144,7 @@ function wrapper(plugin_info) {
     thisplugin.fanpoints = [];
     thisplugin.sortedFanpoints = [];
     thisplugin.sortedFanpoints[0] = [];
+    thisplugin.sfLinks = [];
     thisplugin.hullPoints = [];
     thisplugin.numSubFields = 1;
 
@@ -385,15 +386,19 @@ function wrapper(plugin_info) {
         var i,k;
         var linksOnA = [], linksOnB = [], result = [];
         for (i in list) {
-            if ((list[i].a.equals(a) && list[i].b.equals(b)) || (list[i].a.equals(b) && list[i].b.equals(a))) {
+            //if ((list[i].a.equals(a) && list[i].b.equals(b)) || (list[i].a.equals(b) && list[i].b.equals(a))) {
+            if ((list[i].a.point.equals(a.point) && list[i].b.point.equals(b.point)) || (list[i].a.point.equals(b.point) && list[i].b.point.equals(a.point))) {
                 // link in list equals tested link
                 continue;
             }
+            /*
             if (list[i].a.equals(a) || list[i].b.equals(a))
                 linksOnA.push(list[i]);
             if (list[i].a.equals(b) || list[i].b.equals(b))
                 linksOnB.push(list[i]);
+                */
         }
+        /*
         for (i in linksOnA) {
             for (k in linksOnB) {
                 if (linksOnA[i].a.equals(linksOnB[k].a) || linksOnA[i].a.equals(linksOnB[k].b) )
@@ -402,6 +407,7 @@ function wrapper(plugin_info) {
                     result.push(linksOnA[i].b);
             }
         }
+        */
         return result;
     };
 
@@ -420,10 +426,14 @@ function wrapper(plugin_info) {
 
     thisplugin.linksEqual = function(link1,link2) {
         var Aa, Ab, Ba, Bb;
-        Aa =  link1.a.equals(link2.a);
-        Ab =  link1.a.equals(link2.b);
-        Ba =  link1.b.equals(link2.a);
-        Bb =  link1.b.equals(link2.b);
+        //Aa =  link1.a.equals(link2.a);
+        //Ab =  link1.a.equals(link2.b);
+        //Ba =  link1.b.equals(link2.a);
+        //Bb =  link1.b.equals(link2.b);
+        Aa =  link1.a.point.equals(link2.a);
+        Ab =  link1.a.point.equals(link2.b);
+        Ba =  link1.b.point.equals(link2.a);
+        Bb =  link1.b.point.equals(link2.b);
         if ((Aa || Ab) && (Ba || Bb)) {
             return true;
         }
@@ -436,21 +446,32 @@ function wrapper(plugin_info) {
         dGuid,dLatE6,dLngE6,oGuid,oLatE6,oLngE6
         */
         var x1, y1, x2, y2, x3, y3, x4, y4;
-        x1 = link1.a.x;
-        y1 = link1.a.y;
-        x2 = link1.b.x;
-        y2 = link1.b.y;
-        x3 = link2.a.x;
-        y3 = link2.a.y;
-        x4 = link2.b.x;
-        y4 = link2.b.y;
-
+        //x1 = link1.a.x;
+        //y1 = link1.a.y;
+        //x2 = link1.b.x;
+        //y2 = link1.b.y;
+        //x3 = link2.a.x;
+        //y3 = link2.a.y;
+        //x4 = link2.b.x;
+        //y4 = link2.b.y;
+        x1 = link1.a.point.x;
+        y1 = link1.a.point.y;
+        x2 = link1.b.point.x;
+        y2 = link1.b.point.y;
+        x3 = link2.a.point.x;
+        y3 = link2.a.point.y;
+        x4 = link2.b.point.x;
+        y4 = link2.b.point.y;
         var Aa, Ab, Ba, Bb;
-        Aa =  link1.a.equals(link2.a);
-        Ab =  link1.a.equals(link2.b);
-        Ba =  link1.b.equals(link2.a);
-        Bb =  link1.b.equals(link2.b);
-
+        console.log('intersect link1.a:', link1.a);
+        //Aa =  link1.a.equals(link2.a);
+        //Ab =  link1.a.equals(link2.b);
+        //Ba =  link1.b.equals(link2.a);
+        //Bb =  link1.b.equals(link2.b);
+        Aa =  link1.a.point.equals(link2.a.point);
+        Ab =  link1.a.point.equals(link2.b.point);
+        Ba =  link1.b.point.equals(link2.a.point);
+        Bb =  link1.b.point.equals(link2.b.point);
 
         if ( Aa || Ab || Ba || Bb)  {
             // intersection is at start, that's ok.
@@ -579,19 +600,25 @@ function wrapper(plugin_info) {
         bx = c.x - a.x;
         by = c.y - a.y;
         //console.log('getAngle2:', ax, ay, bx, by);
-        var num = Math.abs(ax*bx + ay*by);
+        var num = ax*bx + ay*by;
         var den = Math.sqrt(ax*ax + ay*ay) * Math.sqrt(bx*bx + by*by);
 
-        angle = Math.acos(num / den) * thisplugin.RAD_TO_DEG;
+        // to do: to reduce math needed, determine if this can be
+        // reduced to return(num/den)
+        // for sorting purposes, conversion to degrees is not needed
+        // cos(angle) decreases over 0..180, but is monotonic
+        // so -1*(num/den) should work
+        //angle = Math.acos(num / den) * thisplugin.RAD_TO_DEG;
+        angle = Math.acos(num / den);
         return angle;
     }
 
     // find points in polygon 
     thisplugin.filterPolygon = function (points, polygon) {
 
-        //console.log('filterPolygon:');
+        console.log('filterPolygon:');
         //console.log(points);
-        //console.log(polygon);
+        console.log(polygon);
 
         var result = [];
         var guid,i,j,ax,ay,bx,by,la,lb,cos,alpha,det;
@@ -634,18 +661,19 @@ function wrapper(plugin_info) {
     thisplugin.n = 0;
     thisplugin.triangles = [];
     thisplugin.donelinks = [];
+    thisplugin.sfLinks = [];
     thisplugin.updateLayer = function() {
         var a,b,c;
         var fanlinks = [], donelinks = [], maplinks = [];
         var triangles = [];
-        var n = 0;
+        //var n = 0;
         var directiontest;
         var centerOutgoings = 0;
         var centerSbul = 0;
         var pa,i,pb,k,ll,p;
         var guid;
         var polygon,intersection;
-        var fp_index, fp, sublinkCount;
+        var fp_index, fp; //, sublinkCount;
         // *** this should be the same as start point incoming
         thisplugin.centerKeys = 0;
 
@@ -668,20 +696,24 @@ function wrapper(plugin_info) {
 
 
         function drawStartLabel(a) {
-            if (n <2) return;
+            console.log('draw start: ', a);
+            // *** wtf is n?
+            //if (n <2) return;
             var alatlng = map.unproject(a.point, thisplugin.PROJECT_ZOOM);
-            var labelText = "";
+            var labelText = "Start<br>Keys: ";
+            /*
             if (thisplugin.stardirection == thisplugin.starDirENUM.CENTRALIZING) {
                 labelText = "START<BR>Keys: "+ a.incoming.length +"<br>Total Fields: " + triangles.length.toString();
             }
             else {
                 labelText = "START<BR>Keys: "+ a.incoming.length +", SBUL: "+(centerSbul)+"<br>out: " + centerOutgoings + "<br>Total Fields: " + triangles.length.toString();
             }
+            */
             thisplugin.addLabel(thisplugin.start.guid, alatlng,labelText);
         }
 
         function drawNumber(a,number) {
-            if (n <2) return;
+            //if (n <2) return;
             var alatlng = map.unproject(a.point, thisplugin.PROJECT_ZOOM);
             var labelText = "";
             labelText =number + "<br>Keys: "+ a.incoming.length +"<br>out: " + a.outgoing.length;
@@ -762,12 +794,13 @@ function wrapper(plugin_info) {
 
         // Find convex hull from fanpoints list of points
         // Returns array of [guid,{x: y:}]
+        // *** change to array of {guid: , point:{x:, y:}}
         function convexHull(points) {
 
             function cross(a, b, o) {
                 return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x)
             }
-            // convert to array
+            // convert to array of [guid, point]
             var pa = Object.entries(points).map(p => [p[0], p[1]]);
             // sort by x then y if x the same
             pa.sort(function(a, b) {
@@ -775,30 +808,41 @@ function wrapper(plugin_info) {
             });
 
             var lower = [];
+            var lowerx = [];
             var i;
             for (i = 0; i < pa.length; i++) {
                 while (lower.length >= 2 && cross(lower[lower.length - 2][1], lower[lower.length - 1][1], pa[i][1]) <= 0) {
                     lower.pop();
+                    lowerx.pop();
                 }
                 lower.push(pa[i]);
+                lowerx.push({guid:pa[i][0], point:pa[i][1]});
             }
 
             var upper = [];
+            var upperx = [];
             for (i = pa.length - 1; i >= 0; i--) {
                 while (upper.length >= 2 && cross(upper[upper.length - 2][1], upper[upper.length - 1][1], pa[i][1]) <= 0) {
                     upper.pop();
+                    upperx.pop();
                 }
                 upper.push(pa[i]);
+                upperx.push({guid:pa[i][0], point:pa[i][1]});
             }
 
             upper.pop();
             lower.pop();
-            return lower.concat(upper);
+            upperx.pop();
+            lowerx.pop();
+
+            //return lower.concat(upper);
+            return lowerx.concat(upperx);
         };
 
         //console.log('fanpoints:', this.fanpoints);
         thisplugin.hullPoints = convexHull(this.fanpoints);
 	    console.log('Found perimeter points :', thisplugin.hullPoints.length);
+        console.log('hull points = ', thisplugin.hullPoints);
 
         // Must have >= 3 hull points to proceed
         if (thisplugin.hullPoints.length < 3) 
@@ -820,7 +864,7 @@ function wrapper(plugin_info) {
             }
             console.log("next start index = ", index);
 
-            var guid = thisplugin.hullPoints[index][0];
+            var guid = thisplugin.hullPoints[index].guid;
             var point = thisplugin.fanpoints[guid];
 
             thisplugin.start = {guid : guid, point : point, index : index};
@@ -833,14 +877,15 @@ function wrapper(plugin_info) {
 	    thisplugin.numSubFields = thisplugin.hullPoints.length - 2;
         var subfield_range = [...Array(thisplugin.numSubFields).keys()];
 
-        console.log('subfield_range=', subfield_range);
+        //console.log('subfield_range=', subfield_range);
 
-        // array of sorted points for each subfield
+        // arrays for each subfield
         for (i of subfield_range) {
             thisplugin.sortedFanpoints[i] = [];
+            thisplugin.sfLinks[i] = [];
         }
 
-        var sfpoints = [];
+        var sfIndices = [];
 
         var sfi = thisplugin.start.index;
         var pmax = thisplugin.hullPoints.length;
@@ -854,32 +899,31 @@ function wrapper(plugin_info) {
             return n;
         }
 
+        // sfIndices : list of indices in hullPoints defining subfield boundary
+        // each list of 3 indices defines 1 subfield
+        // sfBoundary : list of 3 points which define subfield outer links
+        var sfBoundary = [];
         for (sf of subfield_range) {
+            var p = thisplugin.hullPoints;
+            var indices = [];
             if (sf === 0) {
-                sfpoints[0] = [sfi, (sfi+1) % pmax, (sfi+2) % pmax];
+                indices = [sfi, (sfi+1) % pmax, (sfi+2) % pmax];
             }
             else {
-                sfpoints[sf] = [sfpoints[sf-1][2], sfpoints[sf-1][0], sflast(sfpoints[sf-1][0], tri_dir, pmax)];
+                indices = [sfIndices[sf-1][2], sfIndices[sf-1][0], sflast(sfIndices[sf-1][0], tri_dir, pmax)];
                 tri_dir *= -1; 
             }
+            sfIndices.push(indices);
+            sfBoundary.push([p[indices[0]], p[indices[1]], p[indices[2]]]);
         }
-        //console.log('sfpoints:', sfpoints);
-        var sfpoly_points = [];
-        var p = thisplugin.hullPoints;
-        for (sf of sfpoints){
-            //console.log('sf:', sf[0]);
-            sfpoly_points.push([p[sf[0]][1], p[sf[1]][1], p[sf[2]][1]]);
-        }
-        console.log('sf poly:', sfpoly_points);
-        console.log('hull points:', thisplugin.hullPoints);
 
         // filter selected portals into sub fields
-        // *** only needed if multifield
         var sfFanpoints = [];
         if (thisplugin.multiField) {
-            for (poly of sfpoly_points) {
+            for (poly of sfBoundary) {
                 console.log('poly:', poly);
-                var sf_filtered = thisplugin.filterPolygon(thisplugin.fanpoints, poly);
+                var poly_points = poly.map(function(p) {return p.point});
+                var sf_filtered = thisplugin.filterPolygon(thisplugin.fanpoints, poly_points);
                 sfFanpoints.push(sf_filtered);
                 console.log('sf filtered:', sf_filtered);
             }
@@ -888,9 +932,13 @@ function wrapper(plugin_info) {
         }
         console.log('sfFanpoints:', sfFanpoints);
 
-        for (sf of sfpoly_points) {
+        // outline subfields in thicker blue lines
+        //for (sf of sfpoly_points) {
+        for (sf of sfBoundary) {
+            var points = sf.map(function(p) {return p.point});
             for (i=0; i < 3; i++){
-                drawLink(sf[i], sf[(i+1)%3], {
+                //drawLink(sf[i], sf[(i+1)%3], {
+                drawLink(points[i], points[(i+1)%3], {
                     color: '#0000FF',
                     opacity: 1,
                     weight: 4,
@@ -901,58 +949,37 @@ function wrapper(plugin_info) {
             }
         }
 
-        // *** add loop to process multifield mode;
-        //     each mf adds an array of points to sortedFanpoints
+        // each sub field adds an array of points to sortedFanpoints
         console.log('----------------------------------');
         for (mfIdx = 0; mfIdx < thisplugin.numSubFields; mfIdx++) {    
             console.log('--------- mfIdx=', mfIdx);
-        //for (mfIdx = 0; mfIdx < 1; mfIdx++) {
-            //if (!thisplugin.multiField) {
-                // base line for angle is first 2 points in hullPoints
-                // *** this changes if multifield
-                //     use first 2 points in subfield poly
 
                 // *** Is CW/CCW control to select base1 point useful? this would change triangulate as well
 
-                // change base0,base1 to use subfield points
-                //var base0 = thisplugin.hullPoints[thisplugin.start.index][1];
-                //var base1 = thisplugin.hullPoints[(thisplugin.start.index + 1) % thisplugin.hullPoints.length][1];
-                //var base_p0_idx = thisplugin.hullPoints[sfpoints[mfIdx][0]];
-                //var base_p1_idx = thisplugin.hullPoints[sfpoints[mfIdx][1]];
-                var base_p0_idx = sfpoints[mfIdx][0];
-                var base_p1_idx = sfpoints[mfIdx][1];
+                // base line of each subfield is first 2 boundary points
+                let base0 = sfBoundary[mfIdx][0].point;
+                let base1 = sfBoundary[mfIdx][1].point;
 
-                console.log('base idx', base_p0_idx, base_p1_idx);
-                var base0 = thisplugin.hullPoints[base_p0_idx][1];
-                var base1 = thisplugin.hullPoints[base_p1_idx][1];
-                
                 // create sortedFanpoints from all selected portals
-                var base_angle = thisplugin.getAngle(base0, base1);
-                var fp_angle2;
+                let base_angle = thisplugin.getAngle(base0, base1);
                 console.log('base angle:', base_angle);
                 thisplugin.sortedFanpoints[mfIdx] = [];
-                //for ( guid in this.fanpoints) {
+                thisplugin.sfLinks[mfIdx] = [];
                 for (guid in sfFanpoints[mfIdx]) {
-                    //fp = this.fanpoints[guid];
                     fp = sfFanpoints[mfIdx][guid];
-                    var fp_angle;
-                    var is_start;
-                    
-                    //is_start = this.fanpoints[guid].equals(thisplugin.start.point);
-                    // sfpoints[mfIdx] is [] of outer point indices for current sf
-                    
-                    is_start = guid == thisplugin.hullPoints[sfpoints[mfIdx][0]][0];
+                    let fp_angle;
+                    let is_start;
+                    let is_outer;
+
+                    is_start = guid == sfBoundary[mfIdx][0].guid;
+                    is_outer = (is_start || (guid == sfBoundary[mfIdx][1].guid) || (guid == sfBoundary[mfIdx][2].guid));
 
                     // for portal order number display the start point
                     // must be at sortedFanpoints[0]. set angle to -1 to force this.
-                    // correct wraparound for angles that cross 180
                     if (is_start) {
                         fp_angle = -1;
                     } else {
-                        //fp_angle = thisplugin.getAngle(base0, fp, base_angle);
-                        //fp_angle2 = thisplugin.getAngle2(base0, base1, fp);
                         fp_angle = thisplugin.getAngle2(base0, base1, fp);
-                        //console.log('fp angle:', fp_angle); //, fp_angle2);
                     }
                     
                     this.sortedFanpoints[mfIdx].push({point: fp,
@@ -960,7 +987,8 @@ function wrapper(plugin_info) {
                                             guid: guid,
                                             incoming: [],
                                             outgoing: [],
-                                            is_start: is_start
+                                            is_start: is_start,
+                                            is_outer: is_outer
                                             });
                 }
 
@@ -969,59 +997,34 @@ function wrapper(plugin_info) {
                 });
             //} 
 
-        // add links from all points to start
-        /*
-        *** these are added in the donelinks loop; this is probably not needed
-        n = thisplugin.sortedFanpoints[mfIdx].length;
-        for (p of thisplugin.sortedFanpoints[mfIdx]) {
-            console.log('p:', p);
-            if (!p.is_start) {
-                a = p.point;
-                b = thisplugin.start.point;
-
-                fanlinks.push({a: a,
-                       b: b,
-                       angle: undefined,
-                       isJetLink: undefined,
-                       isFanLink: undefined
-                      });
-            }
-        }
-        console.log('fanlinks len=', fanlinks.length);
-        */
-
         if (!thisplugin.is_clockwise) {
             // reverse all but the first element
             this.sortedFanpoints[mfIdx] = this.sortedFanpoints[mfIdx].concat(this.sortedFanpoints[mfIdx].splice(1,this.sortedFanpoints[mfIdx].length-1).reverse());
         }
 
+        // points for all subfields found and sorted by angle
+        console.log('sortedFanpoints: ', thisplugin.sortedFanpoints);
+
+        // find fanfield links in each subfield
         donelinks = [];
-        var outbound = 0;
         var possibleline;
+        var testlink;
         for(pa = 0; pa < this.sortedFanpoints[mfIdx].length; pa++){
-            sublinkCount = 0;
+            //sublinkCount = 0;
             console.log('pa#, guid', pa, this.sortedFanpoints[mfIdx][pa].guid);
             console.log('donelinks len:', donelinks.length);
             for(pb = 0 ; pb < pa; pb++) {
                 //console.log('link test a,b:', pa, pb);
                 console.log('pb#, guid', pb, this.sortedFanpoints[mfIdx][pb].guid);
-                outbound = 0;
-                a = this.sortedFanpoints[mfIdx][pa].point;
-                b = this.sortedFanpoints[mfIdx][pb].point;
 
+                let outer_link = this.sortedFanpoints[mfIdx][pa].is_outer && this.sortedFanpoints[mfIdx][pb].is_outer;
+                a = {point: this.sortedFanpoints[mfIdx][pa].point, guid: this.sortedFanpoints[mfIdx][pa].guid};
+                b = {point: this.sortedFanpoints[mfIdx][pb].point, guid: this.sortedFanpoints[mfIdx][pb].guid};
+                console.log('a,b:', a, b);
+
+                // *** this count should be available in the final link data at start portal incoming
                 if (pb===0) {
-                    if (thisplugin.stardirection == thisplugin.starDirENUM.RADIATING && centerOutgoings < 40 ) {
-                        a = this.sortedFanpoints[mfIdx][pb].point;
-                        b = this.sortedFanpoints[mfIdx][pa].point;
-                        console.log("outbound");
-                        centerOutgoings++;
-                        if (centerOutgoings > 8) {
-                            // count sbul
-                            centerSbul = Math.ceil(((centerOutgoings-8) / 8));
-                        }
-                        outbound = 1;
-                    }
-                    else thisplugin.centerKeys++;
+                    thisplugin.centerKeys++;
                 }
 
                 possibleline = {a: a,
@@ -1031,6 +1034,10 @@ function wrapper(plugin_info) {
                                 isFanLink: (pb===0),
                                 counts: true
                                };
+                
+                // *** links do not need angle ***
+                testlink = {a: a, b: b, angle: 0, counts: true, is_outer: outer_link};
+
                 intersection = 0;
                 maplinks = [];
                 if (thisplugin.respectCurrentLinks) {
@@ -1048,29 +1055,41 @@ function wrapper(plugin_info) {
                     }
                 }
 
-                for (i in donelinks) {
-                    if (this.intersects(possibleline,donelinks[i])) {
+                // check if this link is a shared link from the previous sub field
+                if (mfIdx > 0 && testlink.is_outer) {
+                    for (l of thisplugin.sfLinks[mfIdx-1]) {
+                        if (l.is_outer) {
+                            //console.log('is_outer test:', testlink, l);
+                            // if links match this is an intersection between the boundary of the 
+                            // current subfield and previous subfield
+                            if (((l.a.guid == testlink.a.guid) && (l.b.guid == testlink.b.guid)) ||
+                                ((l.a.guid == testlink.b.guid) && (l.b.guid == testlink.a.guid))) {
+                                    intersection++;
+                                    //console.log('boundary intersection');
+                                    break;
+                                }
+                        }
+                    }
+                }
+                
+                for (i in thisplugin.sfLinks[mfIdx]) {
+                     if (this.intersects(testlink,thisplugin.sfLinks[mfIdx][i])) {
+                        console.log('intersects: ', testlink, thisplugin.sfLinks[mfIdx][i]);
                         intersection++;
                         break;
                     }
                 }
-                /*
-                for (i in fanlinks) {
-                    if (this.intersects(possibleline,fanlinks[i])) {
-                        intersection++;
-                        break;
-                    }
-                }
-                */
 
                 if (intersection === 0) {
                     // Check if Link is a jetlink and add second field
                     var thirds = [];
                     if (thisplugin.respectCurrentLinks) {
                         if (possibleline.counts) {
+                            //thirds = this.getThirds(donelinks.concat(maplinks),possibleline.a, possibleline.b);
                             thirds = this.getThirds(donelinks.concat(maplinks),possibleline.a, possibleline.b);
                         }
                     } else {
+                        //thirds = this.getThirds(donelinks,possibleline.a, possibleline.b);
                         thirds = this.getThirds(donelinks,possibleline.a, possibleline.b);
                     }
 
@@ -1078,39 +1097,38 @@ function wrapper(plugin_info) {
                         possibleline.isJetLink = true;
                     }
 
-                    console.log('add link:', possibleline);
+                    console.log('add link:', mfIdx, testlink);
+                    //if (possibleline.counts) {
+                    thisplugin.sfLinks[mfIdx].push(testlink);
+                    //}
+
                     if (possibleline.counts) {
                         var dl_splice;
                         dl_splice = donelinks.length - (thisplugin.sortedFanpoints[mfIdx].length - pa);
-                        console.log('dl splice:', donelinks.length, dl_splice);
                         donelinks.splice(donelinks.length-(this.sortedFanpoints[mfIdx].length-pa),0,possibleline);
-                        if (pb===0 && thisplugin.stardirection == thisplugin.starDirENUM.RADIATING && outbound == 1 ) {
-                            this.sortedFanpoints[mfIdx][pb].outgoing.push(this.sortedFanpoints[mfIdx][pa]);
-                            this.sortedFanpoints[mfIdx][pa].incoming.push(this.sortedFanpoints[mfIdx][pb]);
-                        } else {
-                            this.sortedFanpoints[mfIdx][pa].outgoing.push(this.sortedFanpoints[mfIdx][pb]);
-                            this.sortedFanpoints[mfIdx][pb].incoming.push(this.sortedFanpoints[mfIdx][pa]);
-                        }
-                        console.log('donelinks:', donelinks);
-
+                        this.sortedFanpoints[mfIdx][pa].outgoing.push(this.sortedFanpoints[mfIdx][pb]);
+                        this.sortedFanpoints[mfIdx][pb].incoming.push(this.sortedFanpoints[mfIdx][pa]);
+                        //console.log('donelinks:', donelinks);
                     }
+
                     for (var t in thirds) {
                         triangles.push({a:thirds[t], b:possibleline.a, c:possibleline.b});
                     }
                 }
             }
         }
-        // end of mfNum loop
+        // end mfIdx loop
         }
 
         console.log('sortedFanpoints:', thisplugin.sortedFanpoints);
-        console.log('donelinks len=', donelinks.length);
+        //console.log('donelinks len=', donelinks.length);
         // add donelinks to links
         $.each(donelinks, function(i,elem) {
-            console.log('donelinks i:', i, elem);
+            //console.log('donelinks i:', i, elem);
             thisplugin.links[i] = elem;
         });
-        console.log('links:', thisplugin.links);
+        //console.log('links:', thisplugin.links);
+        console.log('sfLinks:', thisplugin.sfLinks);
 
         // *** Should this be total or for each subfield?
         /*
@@ -1133,30 +1151,64 @@ function wrapper(plugin_info) {
         thisplugin.clearAllPortalLabels();
 
         // and add those we do
-        var startLabelDrawn = false;
+        //var startLabelDrawn = false;
+
+        // count keys/links for all subfields
+        var nkeys = [];
+        var nlinks = [];
+        console.log('count keys:', thisplugin.sortedFanpoints.length);
+
+        thisplugin.sortedFanpoints.forEach(function(sf){
+            sf.forEach(function(p) {
+                if (nkeys[p.guid] == undefined) {
+                    nkeys[p.guid] = {keys:0, links:0};
+                }
+                nkeys[p.guid].keys += p.incoming.length;
+                
+                //console.log('check: ', p);
+                //if (thisplugin.start.guid === p.guid) {
+                //    console.log('found start');
+                //    drawStartLabel(p);
+                //}
+            });
+        });
+        console.log('keys: ', nkeys);
+
+        //console.log('find start: ', thisplugin.start.guid);
+        thisplugin.sortedFanpoints.forEach(function(sf){
+            sf.forEach(function(p){
+                console.log('check: ', p);
+                if (thisplugin.start.guid === p.guid) {
+                    //console.log('found start');
+                    drawStartLabel(p);
+                }
+            });
+        });
+        // *** this is outside mfIdx loop so is wrong; 
         /*
         $.each(this.sortedFanpoints[mfIdx], function(idx, fp) {
             if (thisplugin.start.point !== undefined && fp.point.equals(thisplugin.start.point)) {
                 drawStartLabel(fp);
-                startLabelDrawn = true;
+                //startLabelDrawn = true;
             }
             else
                 drawNumber(fp,idx);
         });
         */
-
-        $.each(thisplugin.links, function(idx, edge) {
-            //console.log('edge:',edge);
-            drawLink(edge.a, edge.b, {
+        thisplugin.sfLinks.forEach(function(sf) {
+            sf.forEach(function(l) {
+                //console.log('drawlink:', l);
+                drawLink(l.a.point, l.b.point, {
                 color: '#FF0000',
                 opacity: 1,
                 weight: 1.5,
                 clickable: false,
                 smoothFactor: 10,
                 dashArray: [10, 5, 5, 5, 5, 5, 5, 5, "100%" ],
-            });
-        });
-
+               });
+               
+           });
+       });
 
         $.each(triangles, function(idx, triangle) {
             drawField(triangle.a, triangle.b, triangle.c, {
