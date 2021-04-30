@@ -3,7 +3,7 @@
 // @name            IITC plugin: Fan Fields 2
 // @author          Heistergand
 // @category        Layer
-// @version         2.1.10.2
+// @version         2.2.0
 // @description     Generate a link plan to create the maximum number fields from a group of portals. Enable from the layer chooser.
 // @include         https://intel.ingress.com/*
 // @match           https://intel.ingress.com/*
@@ -18,6 +18,10 @@
 
 /*
 Version History:
+2.2.0
+Added Single/Multi Anchor mode.
+Incoming control disabled.
+
 2.1.10
 Bug fix: Move leaflet related init into setup() 
 
@@ -98,9 +102,14 @@ NEW: Added labels to portals
 FIX: Links were drawn in random order
 FIX: Only fields to the center portal were drawn
 
+Issues:
+Lock function is not useful for layouts which require lower zoom levels due
+to portal filtering. Locking portals at the high zooms which show all portals
+(ie: no portal filters) would be more useful but requires a portal lock on a
+per portal basis.
+
 Todo:
 
-Add a kind of system to have a cluster of Fanfields
 Calculate distance to walk for the plan (crow / streets)
 Calculate the most efficient possible plan based on ways to walk and keys to farm
 Export to Arcs
@@ -340,9 +349,11 @@ function wrapper(plugin_info) {
         thisplugin.is_clockwise = !thisplugin.is_clockwise;
         var clockwiseSymbol="", clockwiseWord="";
         if (thisplugin.is_clockwise)
-            clockwiseSymbol = "&#8635;", clockwiseWord = "Clockwise";
+            //clockwiseSymbol = "&#8635;", clockwiseWord = "Clockwise";
+            clockwiseSymbol = "&#8635;", clockwiseWord = "CW";
         else
-            clockwiseSymbol = "&#8634;", clockwiseWord = "Counterclockwise";
+            //clockwiseSymbol = "&#8634;", clockwiseWord = "Counterclockwise";
+            clockwiseSymbol = "&#8634;", clockwiseWord = "CCW";
         $('#plugin_fanfields_clckwsbtn').html(clockwiseWord+':&nbsp;('+clockwiseSymbol+')');
         thisplugin.delayedUpdateLayer(0.2);
     };
@@ -416,10 +427,9 @@ function wrapper(plugin_info) {
         let b = test.b;
 
         for (i in list) {
-            //if ((list[i].a.equals(a) && list[i].b.equals(b)) || (list[i].a.equals(b) && list[i].b.equals(a))) {
             if ((list[i].a.point.equals(a.point) && list[i].b.point.equals(b.point)) || (list[i].a.point.equals(b.point) && list[i].b.point.equals(a.point))) {
                 // link in list equals tested link
-                // *** test link cannot match existing link, why is this here?
+                // *** this should never happen, test link cannot match existing link
                 console.log('getThirds: link matches existing');
                 continue;
             }
@@ -441,8 +451,6 @@ function wrapper(plugin_info) {
             }
         }
         
-        //console.log('get t:', linksOnA, linksOnB);
-        console.log('res:', result);
         return result;
     };
 
@@ -1094,14 +1102,12 @@ function wrapper(plugin_info) {
                             thirds = this.getThirds(donelinks,possibleline.a, possibleline.b);
                         }
                         */
-                        //console.log('new link: ',testlink);
                         // find triangles formed by test link
                         thirds = this.getThirds(thisplugin.sfLinks[mfIdx],testlink);
 
-                        if (thirds.length > 0) 
-                            console.log('found triangles: ', thirds.length);
+                        //if (thirds.length > 0) 
+                        //    console.log('found triangles: ', thirds.length);
 
-                        //console.log('add link:', mfIdx, testlink);
                         thisplugin.sfLinks[mfIdx].push(testlink);
 
                         if (testlink.counts) {
@@ -1110,11 +1116,8 @@ function wrapper(plugin_info) {
                         }
 
                         for (var t in thirds) {
-                            //triangles.push({a:thirds[t], b:possibleline.a, c:possibleline.b});
-                            
                             triangles.push({a:thirds[t], b:testlink.a, c:testlink.b});
                         }
-                        console.log('triangles :', triangles);
                     }
                 }
             }
@@ -1218,6 +1221,7 @@ function wrapper(plugin_info) {
         var button13 = '<a class="plugin_fanfields_btn" id="plugin_fanfields_mfbtn" onclick="window.plugin.fanfields.toggleMultiField();">Single Anchor</a> ';
 
         var button7 = '<a class="plugin_fanfields_btn" id="plugin_fanfields_lockbtn" onclick="window.plugin.fanfields.lock();">Unlocked</a> ';
+        var button6 = '<a class="plugin_fanfields_btn" id="plugin_fanfields_clckwsbtn" onclick="window.plugin.fanfields.toggleclockwise();">CW:(&#8635;)</a> ';
 
         //var button4 = '<a class="plugin_fanfields_btn" onclick="window.plugin.fanfields.exportText();">Show&nbsp;as&nbsp;list</a> ';
         var button4 = '<a class="plugin_fanfields_btn" onclick="window.plugin.fanfields.exportText();">Show&nbsp;List</a> ';
@@ -1234,6 +1238,7 @@ function wrapper(plugin_info) {
         var fanfields_buttons =
             button12 + 
             button13 +
+            button6 +
             button3 + button11 +
             button4 +
             //  button5 +
