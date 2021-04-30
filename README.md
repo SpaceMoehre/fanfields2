@@ -1,19 +1,18 @@
 # Fan Fields 2
-An INGRESS fan field planner plugin for IITC
+An INGRESS fan field planner plugin for IITC. Creates a maximum fielded link plan
+for a selected set of portals.
 
-I finished playing INGRESS a long time ago. No changes have been made in this repository for a long time, but 
-some contributors picked the challenge to improve this script. I finally merged the changes.
+Forked from Heistergand
 
-## forks
-If you like to get updates to it, developers can FORK THIS PROJECT and continue with it.
+2.2.0 Added multifield feature. 
+This splits a single fanfield into multiple sub fields when there are more than 3 outer portals to 
+reduce the number of keys required on the single start anchor. If there are only 3 outer portals
+there will be no change. Each subfield can be created independently if desired although
+this requires some care at the boundaries between sub fields. To do this ignore the provided 
+portal order index for any lower numbered portals in other sub fields after creating the
+base link for the sub field.
+Currently the incoming link reversal control has not been implemented for multi anchor mode
+and is disabled until this can be completed (since multiple anchors reduces the start point
+keys required this is not as useful as for single anchor mode)
 
-Get a glympse at the forks and what they added and fixed to make it even better:
-https://github.com/Heistergand/fanfields2/network
-
-## Review on Youtube
-Don't miss this awesome youtube review by Ingress Agent 57Cell aka Michael Hartley:
-
-https://www.youtube.com/watch?v=Z9TPlpnMYyI
-
-Thank you, 57Cell for making awesome ingress videos. This script wouldn't exist without your fanfields videos.
 
